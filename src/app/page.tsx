@@ -1,8 +1,7 @@
 "use client";
 
-import { Suspense, useState, useEffect, useRef } from "react";
-import { Canvas, useFrame } from "@react-three/fiber";
-import { Stars, Environment } from "@react-three/drei";
+import { useState, useEffect, useRef } from "react";
+import dynamic from "next/dynamic";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   BookOpen, Brain, FileText, Clock, Music, FileSearch,
@@ -10,11 +9,13 @@ import {
   SpellCheck, MessageCircle, ChevronRight, Play, X, Menu,
   Sparkles, Zap, Users, Volume2, Globe, CheckCircle,
 } from "lucide-react";
-import * as THREE from "three";
 import Link from "next/link";
 import { AthenaLogo } from "@/components/app/logo";
 import schoolLogo from "@/LOGO/college.png";
 import Image from "next/image";
+
+// Load 3D scene only on client — avoids SSR crash with React 19
+const ThreeScene = dynamic(() => import("@/components/app/three-scene"), { ssr: false });
 
 /* ─── Background Music ───────────────────────────────────────────────────── */
 function BackgroundMusic() {
@@ -242,17 +243,7 @@ export default function LandingPage() {
       {/* ── Hero with 3D ── */}
       <section className="relative h-screen flex items-center justify-center overflow-hidden">
         <div className="absolute inset-0 z-0">
-          <Canvas camera={{ position: [0, 2, 8], fov: 60 }}>
-            <Suspense fallback={null}>
-              <ambientLight intensity={0.5} />
-              <pointLight position={[10, 10, 10]} intensity={1} color="#00d4ff" />
-              <pointLight position={[-10, -10, -10]} intensity={0.5} color="#0066ff" />
-              <Ocean />
-              <FloatingParticles />
-              <Stars radius={100} depth={50} count={5000} factor={4} saturation={0} fade speed={1} />
-              <Environment preset="night" />
-            </Suspense>
-          </Canvas>
+          <ThreeScene />
         </div>
 
         <div className="relative z-10 text-center px-4 max-w-5xl mx-auto">
