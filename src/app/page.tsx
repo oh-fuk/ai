@@ -8,7 +8,7 @@ import {
   BookOpen, Brain, FileText, Clock, Music, FileSearch,
   PenTool, Calendar, BarChart3, FileCheck, BookCopy,
   SpellCheck, MessageCircle, ChevronRight, Play, X, Menu,
-  Sparkles, Zap, Infinity, Users, Volume2, Globe, CheckCircle,
+  Sparkles, Zap, Users, Volume2, Globe, CheckCircle,
 } from "lucide-react";
 import * as THREE from "three";
 import Link from "next/link";
@@ -337,7 +337,7 @@ export default function LandingPage() {
           </div>
           <motion.div initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }} className="text-center mt-12">
             <div className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-white/5 border border-white/10">
-              <Infinity className="w-5 h-5 text-cyan-400" />
+              <Sparkles className="w-5 h-5 text-cyan-400" />
               <span className="text-gray-300">And more coming soon...</span>
             </div>
           </motion.div>
