@@ -28,7 +28,7 @@ import { generateChatResponse } from '@/ai/flows/generate-chat-response';
 import { generateChatTitle } from '@/ai/flows/generate-chat-title';
 import { generateQuizFromChat } from '@/ai/flows/generate-quiz-from-chat';
 import { generatePaperFromPrompt } from '@/ai/flows/generate-paper-from-prompt';
-import { ScrollArea } from '@/components/ui/scroll-area';
+import { TypingDots } from '@/components/app/ai-loading';
 import { cn } from '@/lib/utils';
 import { useNotification } from '@/context/notification-context';
 import {
@@ -864,11 +864,7 @@ function ChatMessageItem({ message, isLoading }: { message: Partial<ChatMessage>
             )}
           >
             {isLoading ? (
-              <div className="flex items-center gap-2">
-                <span className="h-2 w-2 bg-current rounded-full animate-pulse delay-0" />
-                <span className="h-2 w-2 bg-current rounded-full animate-pulse delay-150" />
-                <span className="h-2 w-2 bg-current rounded-full animate-pulse delay-300" />
-              </div>
+              <TypingDots className="py-1 px-1" />
             ) : message.isAction ? (
               <ActionableContent action={message.actionContent} />
             ) : (
@@ -889,12 +885,14 @@ function ChatMessageItem({ message, isLoading }: { message: Partial<ChatMessage>
         </div>
       </div>
 
-      {!isModel && (
-        <Avatar className="h-8 w-8 border shrink-0">
-          <UserIcon className="h-full w-full p-1" />
-        </Avatar>
-      )}
-    </div>
+      {
+        !isModel && (
+          <Avatar className="h-8 w-8 border shrink-0">
+            <UserIcon className="h-full w-full p-1" />
+          </Avatar>
+        )
+      }
+    </div >
   )
 }
 

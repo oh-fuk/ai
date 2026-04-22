@@ -15,6 +15,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { AiLoadingScreen } from '@/components/app/ai-loading';
 import PageHeader from '@/components/app/page-header';
 import { generatePaperFromPrompt } from '@/ai/flows/generate-paper-from-prompt';
 import { generateRemedialPaper } from '@/ai/flows/generate-remedial-paper';
@@ -691,21 +692,8 @@ export default function PaperGeneratorPage() {
     if (isLoading) {
         return (
             <div className="flex flex-col gap-8">
-                <div className="flex items-center gap-4">
-                    <PageHeader
-                        title="Exam Paper Generator"
-                        description="Create a custom exam paper or let AI generate one based on your progress."
-                    />
-                </div>
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Generating Paper...</CardTitle>
-                        <CardDescription>The AI is crafting your paper. This may take a moment.</CardDescription>
-                    </CardHeader>
-                    <CardContent className='flex justify-center items-center py-12'>
-                        <Loader className="h-8 w-8 animate-spin text-primary" />
-                    </CardContent>
-                </Card>
+                <PageHeader title="Exam Paper Generator" description="Create a custom exam paper or let AI generate one based on your progress." />
+                <AiLoadingScreen variant="paper" title="Generating your exam paper..." />
             </div>
         );
     }

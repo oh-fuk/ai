@@ -23,6 +23,7 @@ import {
 } from '@/components/ui/select';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { AiLoadingScreen } from '@/components/app/ai-loading';
 import PageHeader from '@/components/app/page-header';
 import { generateQuizFromPdf } from '@/ai/flows/generate-quiz-from-pdf';
 import { generateQuizFromTopic } from '@/ai/flows/generate-quiz-from-topic';
@@ -479,19 +480,8 @@ export default function QuizPage() {
   if (isLoading) {
     return (
       <div className="flex flex-col gap-8">
-        <PageHeader
-          title="Quiz Generator"
-          description="Create custom quizzes from your study materials to test your knowledge."
-        />
-        <Card>
-          <CardHeader>
-            <CardTitle>Generating Quiz...</CardTitle>
-            <CardDescription>The AI is crafting your questions. Please wait a moment.</CardDescription>
-          </CardHeader>
-          <CardContent className='flex justify-center items-center py-12'>
-            <Loader className="h-8 w-8 animate-spin text-primary" />
-          </CardContent>
-        </Card>
+        <PageHeader title="Quiz Generator" description="Create custom quizzes from your study materials to test your knowledge." />
+        <AiLoadingScreen variant="quiz" title="Generating your quiz..." />
       </div>
     );
   }

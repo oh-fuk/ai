@@ -22,6 +22,7 @@ import { collection, doc } from 'firebase/firestore';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import PageHeader from '@/components/app/page-header';
 import { AnimatePresence, motion } from 'framer-motion';
+import { AiLoadingScreen } from '@/components/app/ai-loading';
 import { extractTextFromPdf } from '@/ai/flows/extract-text-from-pdf';
 import { extractTextFromImage } from '@/ai/flows/extract-text-from-image';
 import { generateNotes, extractKeywordsFromNotes } from '@/ai/flows/generate-notes';
@@ -300,7 +301,7 @@ const formatNotesForPdf = (notes: string, meta: { reportTitle?: string; subject?
             const fontSize = entry.level === 1 ? '13pt' : entry.level === 2 ? '12pt' : '11pt';
             const fontWeight = entry.level === 1 ? 'bold' : 'normal';
             const marginTop = entry.level === 1 && idx > 0 ? '15pt' : '8pt';
-            
+
             tocList += `<li style="margin:${marginTop} 0;padding-left:${indent}pt;font-size:${fontSize};color:#1f2937;font-weight:${fontWeight};">
                 <span style="margin-right:8pt;color:#3f51b5;">${bullet}</span>
                 <a href="#${entry.id}" style="color:#3f51b5;text-decoration:none;">${entry.text}</a>
@@ -759,21 +760,21 @@ export default function NotesMakerPage() {
             doc.setFont('helvetica', 'bold');
             doc.setTextColor(63, 81, 181);
             doc.text('AthenaAI', margin.left, 20);
-            
+
             doc.setFontSize(10);
             doc.setFont('helvetica', 'normal');
             doc.setTextColor(100, 100, 100);
             doc.text(userProfile?.collegeName || '', pageWidth - margin.right, 20, { align: 'right' });
-            
+
             doc.setLineWidth(0.5);
             doc.setDrawColor(63, 81, 181);
             doc.line(margin.left, 25, pageWidth - margin.right, 25);
-            
+
             doc.setFontSize(14);
             doc.setFont('helvetica', 'bold');
             doc.setTextColor(63, 81, 181);
             doc.text(reportTitle, pageWidth / 2, 40, { align: 'center' });
-            
+
             doc.setFontSize(10);
             doc.setFont('helvetica', 'normal');
             doc.setTextColor(0, 0, 0);
@@ -793,7 +794,7 @@ export default function NotesMakerPage() {
         // Process notes content
         const notesWithoutActionPlan = removeActionPlan(notesResult.notes);
         const lines = notesWithoutActionPlan.split('\n');
-        
+
         let pageNum = 1;
         addHeader();
 
@@ -855,10 +856,10 @@ export default function NotesMakerPage() {
                 doc.setFontSize(10);
                 doc.setFont('helvetica', 'normal');
                 doc.setTextColor(0, 0, 0);
-                
+
                 const processedLine = line.replace(/\*\*(.*?)\*\*/g, '$1'); // Remove bold markers
                 const splitText = doc.splitTextToSize(processedLine, contentWidth);
-                
+
                 for (let j = 0; j < splitText.length; j++) {
                     if (yPosition > pageHeight - margin.bottom - 10) {
                         addFooter(pageNum);
@@ -974,159 +975,191 @@ export default function NotesMakerPage() {
                             <CardDescription>Choose to generate notes from a document or a general topic.</CardDescription>
                         </CardHeader>
                         <CardContent>
-                        <Form {...form}>
-                            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-                                <FormField
-                                    control={form.control}
-                                    name="subject"
-                                    render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel>Subject</FormLabel>
-                                            <Select onValueChange={field.onChange} defaultValue={field.value} disabled={subjectsLoading}>
-                                                <FormControl>
-                                                    <SelectTrigger>
-                                                        <SelectValue placeholder={subjectsLoading ? "Loading subjects..." : "Select a subject"} />
-                                                    </SelectTrigger>
-                                                </FormControl>
-                                                <SelectContent>
-                                                    <SelectItem value="general">General</SelectItem>
-                                                    {subjects?.map((subject) => (
-                                                        <SelectItem key={subject.id} value={subject.name}>
-                                                            {subject.name}
-                                                        </SelectItem>
-                                                    ))}
-                                                </SelectContent>
-                                            </Select>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )}
-                                />
-
-                                <FormField
-                                    control={form.control}
-                                    name="generationType"
-                                    render={({ field }) => (
-                                        <FormItem className="space-y-3">
-                                            <FormControl>
-                                                <Tabs defaultValue={field.value} onValueChange={field.onChange} className="w-full">
-                                                    <TabsList className="grid w-full grid-cols-2">
-                                                        <TabsTrigger value="document"><File className="mr-2 h-4 w-4" />From Document</TabsTrigger>
-                                                        <TabsTrigger value="topic"><Pilcrow className="mr-2 h-4 w-4" />From Topic</TabsTrigger>
-                                                    </TabsList>
-                                                </Tabs>
-                                            </FormControl>
-                                        </FormItem>
-                                    )}
-                                />
-
-                                {generationType === 'document' && (
-                                    <div className='space-y-6'>
-                                        <FormField
-                                            control={form.control}
-                                            name="file"
-                                            render={() => (
-                                                <FormItem>
-                                                    <FormLabel>Upload a PDF or Image</FormLabel>
+                            <Form {...form}>
+                                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+                                    <FormField
+                                        control={form.control}
+                                        name="subject"
+                                        render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel>Subject</FormLabel>
+                                                <Select onValueChange={field.onChange} defaultValue={field.value} disabled={subjectsLoading}>
                                                     <FormControl>
-                                                        <div className="relative">
-                                                            <Label
-                                                                htmlFor="file-upload"
-                                                                className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-lg cursor-pointer border-primary/50 bg-muted/20 hover:border-primary hover:bg-primary/5"
-                                                            >
-                                                                <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                                                                    <UploadCloud className="w-8 h-8 mb-2 text-muted-foreground" />
-                                                                    <p className="mb-1 text-sm text-muted-foreground">
-                                                                        <span className="font-semibold">Click to upload</span> or drag and drop
-                                                                    </p>
-                                                                    <p className="text-xs text-muted-foreground flex items-center gap-1">
-                                                                        <File className="h-3 w-3" /> PDF or <ImageIcon className="h-3 w-3" /> Image
-                                                                    </p>
-                                                                    {watchedFile?.[0] && <p className='mt-2 text-xs font-bold'>{watchedFile?.[0]?.name}</p>}
-                                                                </div>
-                                                            </Label>
-                                                            <Controller
-                                                                name="file"
-                                                                control={form.control}
-                                                                render={({ field: { onChange } }) => (
-                                                                    <Input id="file-upload" type="file" accept=".pdf,image/*" className="sr-only"
-                                                                        onChange={(e) => {
-                                                                            const files = e.target.files;
-                                                                            onChange(files);
-                                                                            if (files && files[0]) {
-                                                                                // create preview and initialize rotation
-                                                                                toBase64(files[0]).then(dataUrl => {
-                                                                                    setPreviewImage(dataUrl);
-                                                                                    setRotatedImageDataUri(dataUrl);
-                                                                                    setRotationDeg(0);
-                                                                                }).catch(() => {
+                                                        <SelectTrigger>
+                                                            <SelectValue placeholder={subjectsLoading ? "Loading subjects..." : "Select a subject"} />
+                                                        </SelectTrigger>
+                                                    </FormControl>
+                                                    <SelectContent>
+                                                        <SelectItem value="general">General</SelectItem>
+                                                        {subjects?.map((subject) => (
+                                                            <SelectItem key={subject.id} value={subject.name}>
+                                                                {subject.name}
+                                                            </SelectItem>
+                                                        ))}
+                                                    </SelectContent>
+                                                </Select>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
+
+                                    <FormField
+                                        control={form.control}
+                                        name="generationType"
+                                        render={({ field }) => (
+                                            <FormItem className="space-y-3">
+                                                <FormControl>
+                                                    <Tabs defaultValue={field.value} onValueChange={field.onChange} className="w-full">
+                                                        <TabsList className="grid w-full grid-cols-2">
+                                                            <TabsTrigger value="document"><File className="mr-2 h-4 w-4" />From Document</TabsTrigger>
+                                                            <TabsTrigger value="topic"><Pilcrow className="mr-2 h-4 w-4" />From Topic</TabsTrigger>
+                                                        </TabsList>
+                                                    </Tabs>
+                                                </FormControl>
+                                            </FormItem>
+                                        )}
+                                    />
+
+                                    {generationType === 'document' && (
+                                        <div className='space-y-6'>
+                                            <FormField
+                                                control={form.control}
+                                                name="file"
+                                                render={() => (
+                                                    <FormItem>
+                                                        <FormLabel>Upload a PDF or Image</FormLabel>
+                                                        <FormControl>
+                                                            <div className="relative">
+                                                                <Label
+                                                                    htmlFor="file-upload"
+                                                                    className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-lg cursor-pointer border-primary/50 bg-muted/20 hover:border-primary hover:bg-primary/5"
+                                                                >
+                                                                    <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                                                                        <UploadCloud className="w-8 h-8 mb-2 text-muted-foreground" />
+                                                                        <p className="mb-1 text-sm text-muted-foreground">
+                                                                            <span className="font-semibold">Click to upload</span> or drag and drop
+                                                                        </p>
+                                                                        <p className="text-xs text-muted-foreground flex items-center gap-1">
+                                                                            <File className="h-3 w-3" /> PDF or <ImageIcon className="h-3 w-3" /> Image
+                                                                        </p>
+                                                                        {watchedFile?.[0] && <p className='mt-2 text-xs font-bold'>{watchedFile?.[0]?.name}</p>}
+                                                                    </div>
+                                                                </Label>
+                                                                <Controller
+                                                                    name="file"
+                                                                    control={form.control}
+                                                                    render={({ field: { onChange } }) => (
+                                                                        <Input id="file-upload" type="file" accept=".pdf,image/*" className="sr-only"
+                                                                            onChange={(e) => {
+                                                                                const files = e.target.files;
+                                                                                onChange(files);
+                                                                                if (files && files[0]) {
+                                                                                    // create preview and initialize rotation
+                                                                                    toBase64(files[0]).then(dataUrl => {
+                                                                                        setPreviewImage(dataUrl);
+                                                                                        setRotatedImageDataUri(dataUrl);
+                                                                                        setRotationDeg(0);
+                                                                                    }).catch(() => {
+                                                                                        setPreviewImage(null);
+                                                                                        setRotatedImageDataUri(null);
+                                                                                        setRotationDeg(0);
+                                                                                    });
+                                                                                } else {
                                                                                     setPreviewImage(null);
                                                                                     setRotatedImageDataUri(null);
                                                                                     setRotationDeg(0);
-                                                                                });
-                                                                            } else {
-                                                                                setPreviewImage(null);
-                                                                                setRotatedImageDataUri(null);
-                                                                                setRotationDeg(0);
-                                                                            }
-                                                                        }}
-                                                                    />
+                                                                                }
+                                                                            }}
+                                                                        />
+                                                                    )}
+                                                                />
+                                                                {watchedFile?.[0] && (
+                                                                    <Button type="button" variant="ghost" size="icon" className="absolute top-2 right-2 h-6 w-6" onClick={() => form.resetField('file')}>
+                                                                        <X className="h-4 w-4" />
+                                                                    </Button>
                                                                 )}
-                                                            />
-                                                            {watchedFile?.[0] && (
-                                                                <Button type="button" variant="ghost" size="icon" className="absolute top-2 right-2 h-6 w-6" onClick={() => form.resetField('file')}>
-                                                                    <X className="h-4 w-4" />
-                                                                </Button>
-                                                            )}
-                                                        </div>
-                                                    </FormControl>
-                                                    <FormMessage>{form.formState.errors.file?.message as React.ReactNode}</FormMessage>
-                                                    {/* Preview and rotate controls for image straightening */}
-                                                    {previewImage && (
-                                                        <div className="mt-4">
-                                                            <div className="flex items-center gap-2 mb-2">
-                                                                <Button size="sm" variant="ghost" onClick={async () => {
-                                                                    const newDeg = (rotationDeg - 90) % 360;
-                                                                    try {
-                                                                        const rotated = await rotateDataUrl(rotatedImageDataUri || previewImage, -90);
-                                                                        setRotatedImageDataUri(rotated);
-                                                                        setRotationDeg((newDeg + 360) % 360);
-                                                                    } catch (e) {
-                                                                        toast({ variant: 'destructive', title: 'Rotate failed', description: 'Could not rotate the image.' });
-                                                                    }
-                                                                }}>Rotate Left</Button>
-                                                                <Button size="sm" variant="ghost" onClick={async () => {
-                                                                    const newDeg = (rotationDeg + 90) % 360;
-                                                                    try {
-                                                                        const rotated = await rotateDataUrl(rotatedImageDataUri || previewImage, 90);
-                                                                        setRotatedImageDataUri(rotated);
-                                                                        setRotationDeg(newDeg);
-                                                                    } catch (e) {
-                                                                        toast({ variant: 'destructive', title: 'Rotate failed', description: 'Could not rotate the image.' });
-                                                                    }
-                                                                }}>Rotate Right</Button>
-                                                                <Button size="sm" variant="outline" onClick={() => {
-                                                                    setRotatedImageDataUri(previewImage);
-                                                                    setRotationDeg(0);
-                                                                }}>Reset</Button>
                                                             </div>
+                                                        </FormControl>
+                                                        <FormMessage>{form.formState.errors.file?.message as React.ReactNode}</FormMessage>
+                                                        {/* Preview and rotate controls for image straightening */}
+                                                        {previewImage && (
+                                                            <div className="mt-4">
+                                                                <div className="flex items-center gap-2 mb-2">
+                                                                    <Button size="sm" variant="ghost" onClick={async () => {
+                                                                        const newDeg = (rotationDeg - 90) % 360;
+                                                                        try {
+                                                                            const rotated = await rotateDataUrl(rotatedImageDataUri || previewImage, -90);
+                                                                            setRotatedImageDataUri(rotated);
+                                                                            setRotationDeg((newDeg + 360) % 360);
+                                                                        } catch (e) {
+                                                                            toast({ variant: 'destructive', title: 'Rotate failed', description: 'Could not rotate the image.' });
+                                                                        }
+                                                                    }}>Rotate Left</Button>
+                                                                    <Button size="sm" variant="ghost" onClick={async () => {
+                                                                        const newDeg = (rotationDeg + 90) % 360;
+                                                                        try {
+                                                                            const rotated = await rotateDataUrl(rotatedImageDataUri || previewImage, 90);
+                                                                            setRotatedImageDataUri(rotated);
+                                                                            setRotationDeg(newDeg);
+                                                                        } catch (e) {
+                                                                            toast({ variant: 'destructive', title: 'Rotate failed', description: 'Could not rotate the image.' });
+                                                                        }
+                                                                    }}>Rotate Right</Button>
+                                                                    <Button size="sm" variant="outline" onClick={() => {
+                                                                        setRotatedImageDataUri(previewImage);
+                                                                        setRotationDeg(0);
+                                                                    }}>Reset</Button>
+                                                                </div>
 
-                                                            <div className="border rounded-md overflow-hidden">
-                                                                <img src={rotatedImageDataUri || previewImage} alt="Preview" className="w-full object-contain" />
+                                                                <div className="border rounded-md overflow-hidden">
+                                                                    <img src={rotatedImageDataUri || previewImage} alt="Preview" className="w-full object-contain" />
+                                                                </div>
                                                             </div>
-                                                        </div>
+                                                        )}
+                                                    </FormItem>
+                                                )}
+                                            />
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                                <FormField
+                                                    control={form.control}
+                                                    name="specificTopic"
+                                                    render={({ field }) => (
+                                                        <FormItem>
+                                                            <FormLabel>Specific Topic/Chapter (Optional)</FormLabel>
+                                                            <FormControl>
+                                                                <Input placeholder="e.g., Chapter 3" {...field} />
+                                                            </FormControl>
+                                                            <FormMessage />
+                                                        </FormItem>
                                                     )}
-                                                </FormItem>
-                                            )}
-                                        />
-                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                                />
+                                                <FormField
+                                                    control={form.control}
+                                                    name="pageRange"
+                                                    render={({ field }) => (
+                                                        <FormItem>
+                                                            <FormLabel>Page Range (Optional)</FormLabel>
+                                                            <FormControl>
+                                                                <Input placeholder="e.g., 25-30" {...field} />
+                                                            </FormControl>
+                                                            <FormMessage />
+                                                        </FormItem>
+                                                    )}
+                                                />
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {generationType === 'topic' && (
+                                        <div className='space-y-6'>
                                             <FormField
                                                 control={form.control}
-                                                name="specificTopic"
+                                                name="topic"
                                                 render={({ field }) => (
                                                     <FormItem>
-                                                        <FormLabel>Specific Topic/Chapter (Optional)</FormLabel>
+                                                        <FormLabel>Topic</FormLabel>
                                                         <FormControl>
-                                                            <Input placeholder="e.g., Chapter 3" {...field} />
+                                                            <Input placeholder="e.g., The French Revolution" {...field} />
                                                         </FormControl>
                                                         <FormMessage />
                                                     </FormItem>
@@ -1134,259 +1167,219 @@ export default function NotesMakerPage() {
                                             />
                                             <FormField
                                                 control={form.control}
-                                                name="pageRange"
+                                                name="difficulty"
                                                 render={({ field }) => (
                                                     <FormItem>
-                                                        <FormLabel>Page Range (Optional)</FormLabel>
-                                                        <FormControl>
-                                                            <Input placeholder="e.g., 25-30" {...field} />
-                                                        </FormControl>
+                                                        <FormLabel>Difficulty Level</FormLabel>
+                                                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                                            <FormControl>
+                                                                <SelectTrigger>
+                                                                    <SelectValue placeholder="Select a difficulty" />
+                                                                </SelectTrigger>
+                                                            </FormControl>
+                                                            <SelectContent>
+                                                                <SelectItem value="Beginner">Beginner</SelectItem>
+                                                                <SelectItem value="Intermediate">Intermediate</SelectItem>
+                                                                <SelectItem value="Advanced">Advanced</SelectItem>
+                                                            </SelectContent>
+                                                        </Select>
                                                         <FormMessage />
                                                     </FormItem>
                                                 )}
                                             />
                                         </div>
-                                    </div>
-                                )}
-
-                                {generationType === 'topic' && (
-                                    <div className='space-y-6'>
-                                        <FormField
-                                            control={form.control}
-                                            name="topic"
-                                            render={({ field }) => (
-                                                <FormItem>
-                                                    <FormLabel>Topic</FormLabel>
-                                                    <FormControl>
-                                                        <Input placeholder="e.g., The French Revolution" {...field} />
-                                                    </FormControl>
-                                                    <FormMessage />
-                                                </FormItem>
-                                            )}
-                                        />
-                                        <FormField
-                                            control={form.control}
-                                            name="difficulty"
-                                            render={({ field }) => (
-                                                <FormItem>
-                                                    <FormLabel>Difficulty Level</FormLabel>
-                                                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                                        <FormControl>
-                                                            <SelectTrigger>
-                                                                <SelectValue placeholder="Select a difficulty" />
-                                                            </SelectTrigger>
-                                                        </FormControl>
-                                                        <SelectContent>
-                                                            <SelectItem value="Beginner">Beginner</SelectItem>
-                                                            <SelectItem value="Intermediate">Intermediate</SelectItem>
-                                                            <SelectItem value="Advanced">Advanced</SelectItem>
-                                                        </SelectContent>
-                                                    </Select>
-                                                    <FormMessage />
-                                                </FormItem>
-                                            )}
-                                        />
-                                    </div>
-                                )}
-
-                                <FormField
-                                    control={form.control}
-                                    name="specifications"
-                                    render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel>Additional Specifications (Required)</FormLabel>
-                                            <FormControl>
-                                                <Textarea placeholder="e.g., Focus on the historical context, explain formulas in simple terms, include examples, add diagrams descriptions, etc." {...field} rows={3} />
-                                            </FormControl>
-                                            <FormMessage />
-                                        </FormItem>
                                     )}
-                                />
 
-                                <LoadingButton type="submit" loading={isLoading} loadingText="Generating Notes..." className="w-full">
-                                    Make Notes
-                                </LoadingButton>
-                            </form>
-                        </Form>
-                    </CardContent>
-                </Card>
+                                    <FormField
+                                        control={form.control}
+                                        name="specifications"
+                                        render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel>Additional Specifications (Required)</FormLabel>
+                                                <FormControl>
+                                                    <Textarea placeholder="e.g., Focus on the historical context, explain formulas in simple terms, include examples, add diagrams descriptions, etc." {...field} rows={3} />
+                                                </FormControl>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
+
+                                    <LoadingButton type="submit" loading={isLoading} loadingText="Generating Notes..." className="w-full">
+                                        Make Notes
+                                    </LoadingButton>
+                                </form>
+                            </Form>
+                        </CardContent>
+                    </Card>
                 </div>
 
                 {/* RIGHT SIDE - Study Notes with its own scroll */}
                 <div className="h-full overflow-y-auto pr-2">
                     <div className="space-y-8">
-                    <AnimatePresence>
-                        {isLoading && (
-                            <motion.div
-                                initial={{ opacity: 0, y: 20 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                exit={{ opacity: 0, y: -20 }}
-                            >
-                                <Card>
-                                    <CardHeader>
-                                        <CardTitle>Generating Your Notes</CardTitle>
-                                        <CardDescription>The AI is processing the document and creating your notes. Please wait.</CardDescription>
-                                    </CardHeader>
-                                    <CardContent className='flex justify-center items-center py-16'>
-                                        <Loader className="h-10 w-10 animate-spin text-primary" />
-                                    </CardContent>
-                                </Card>
-                            </motion.div>
-                        )}
+                        <AnimatePresence>
+                            {isLoading && (
+                                <motion.div
+                                    initial={{ opacity: 0, y: 20 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    exit={{ opacity: 0, y: -20 }}
+                                >
+                                    <AiLoadingScreen variant="notes" title="Generating your notes..." />
+                                </motion.div>
+                            )}
 
-                        {notesResult && !isLoading && (
-                            <motion.div
-                                initial={{ opacity: 0, y: 20 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                className="space-y-8"
-                            >
-                                <Card className="border-2 border-primary/20 shadow-lg">
-                                    <CardHeader className="bg-gradient-to-r from-primary/5 to-primary/10 border-b-2 border-primary/20 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                                        <div className='space-y-1.5'>
-                                            <CardTitle className='flex items-center gap-2 text-xl'>
-                                                <BookCopy className='h-6 w-6 text-primary' />
-                                                Your AI-Generated Notes
-                                            </CardTitle>
-                                            <div className="flex items-center gap-3 flex-wrap">
-                                                <p className="text-sm text-muted-foreground">Well-organized notes with key explanations</p>
-                                                <span className="text-xs px-2 py-1 rounded-md bg-primary/10 text-primary font-medium">{form.getValues().subject || 'General'}</span>
-                                                {form.getValues().topic && <span className="text-xs px-2 py-1 rounded-md bg-emerald-100 text-emerald-800 font-medium">Topic: {form.getValues().topic}</span>}
-                                                {form.getValues().difficulty && <span className="text-xs px-2 py-1 rounded-md bg-amber-100 text-amber-800 font-medium">{form.getValues().difficulty}</span>}
-                                            </div>
-                                        </div>
-                                        <div className="flex items-center gap-2">
-                                            <Button onClick={downloadPdf} variant="default" size="sm" className="w-full sm:w-auto bg-primary hover:bg-primary/90">
-                                                <FileDown className="mr-2 h-4 w-4" />
-                                                Download PDF
-                                            </Button>
-                                        </div>
-                                    </CardHeader>
-                                    <CardContent className="space-y-4 pt-6">
-                                        <div className="flex items-center justify-between gap-2">
-                                            <div className="flex items-center gap-2">
-                                                <Button size="sm" variant="outline" onClick={() => {
-                                                    const toCopy = editedNotes ?? notesResult.notes;
-                                                    navigator.clipboard.writeText(toCopy || '');
-                                                    toast({ title: 'Notes copied to clipboard' });
-                                                }}>Copy Notes</Button>
-                                                <Button size="sm" variant={isEditingNotes ? 'secondary' : 'ghost'} onClick={() => {
-                                                    if (!isEditingNotes) {
-                                                        setEditedNotes(notesResult.notes);
-                                                        setIsEditingNotes(true);
-                                                        setShowRawMarkdown(true);
-                                                    } else {
-                                                        setIsEditingNotes(false);
-                                                    }
-                                                }}>{isEditingNotes ? 'Close Editor' : 'Edit Notes'}</Button>
-                                                <Button size="sm" variant="ghost" onClick={() => setShowRawMarkdown(s => !s)}>{showRawMarkdown ? 'Hide Raw' : 'Show Raw'}</Button>
-                                            </div>
-                                            <div className="flex items-center gap-2">
-                                                <Button size="sm" variant="ghost" onClick={() => setKeywordsCollapsed(k => !k)}>{keywordsCollapsed ? 'Expand Keywords' : 'Collapse Keywords'}</Button>
-                                            </div>
-                                        </div>
-
-                                        {/* Editable textarea for raw/edited notes */}
-                                        {isEditingNotes ? (
-                                            <div className="w-full">
-                                                <Textarea value={editedNotes ?? ''} onChange={(e) => setEditedNotes(e.target.value)} rows={16} className="w-full font-mono text-sm" />
-                                                <div className="flex items-center gap-2 mt-2">
-                                                    <Button size="sm" onClick={() => {
-                                                        // Save edited notes into the result so UI updates
-                                                        setNotesResult(prev => prev ? { ...prev, notes: editedNotes ?? prev.notes } : prev);
-                                                        setIsEditingNotes(false);
-                                                        toast({ title: 'Edits saved' });
-                                                    }}>Save Edits</Button>
-                                                    <Button size="sm" variant="ghost" onClick={() => { setEditedNotes(notesResult.notes); setIsEditingNotes(false); }}>Cancel</Button>
+                            {notesResult && !isLoading && (
+                                <motion.div
+                                    initial={{ opacity: 0, y: 20 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    className="space-y-8"
+                                >
+                                    <Card className="border-2 border-primary/20 shadow-lg">
+                                        <CardHeader className="bg-gradient-to-r from-primary/5 to-primary/10 border-b-2 border-primary/20 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                                            <div className='space-y-1.5'>
+                                                <CardTitle className='flex items-center gap-2 text-xl'>
+                                                    <BookCopy className='h-6 w-6 text-primary' />
+                                                    Your AI-Generated Notes
+                                                </CardTitle>
+                                                <div className="flex items-center gap-3 flex-wrap">
+                                                    <p className="text-sm text-muted-foreground">Well-organized notes with key explanations</p>
+                                                    <span className="text-xs px-2 py-1 rounded-md bg-primary/10 text-primary font-medium">{form.getValues().subject || 'General'}</span>
+                                                    {form.getValues().topic && <span className="text-xs px-2 py-1 rounded-md bg-emerald-100 text-emerald-800 font-medium">Topic: {form.getValues().topic}</span>}
+                                                    {form.getValues().difficulty && <span className="text-xs px-2 py-1 rounded-md bg-amber-100 text-amber-800 font-medium">{form.getValues().difficulty}</span>}
                                                 </div>
                                             </div>
-                                        ) : (
-                                            // Rendered view or raw markdown
-                                            showRawMarkdown ? (
-                                                <pre className="w-full whitespace-pre-wrap rounded-md bg-muted/30 p-4 text-sm font-mono border border-primary/20 max-h-96 overflow-auto">{editedNotes ?? notesResult.notes}</pre>
+                                            <div className="flex items-center gap-2">
+                                                <Button onClick={downloadPdf} variant="default" size="sm" className="w-full sm:w-auto bg-primary hover:bg-primary/90">
+                                                    <FileDown className="mr-2 h-4 w-4" />
+                                                    Download PDF
+                                                </Button>
+                                            </div>
+                                        </CardHeader>
+                                        <CardContent className="space-y-4 pt-6">
+                                            <div className="flex items-center justify-between gap-2">
+                                                <div className="flex items-center gap-2">
+                                                    <Button size="sm" variant="outline" onClick={() => {
+                                                        const toCopy = editedNotes ?? notesResult.notes;
+                                                        navigator.clipboard.writeText(toCopy || '');
+                                                        toast({ title: 'Notes copied to clipboard' });
+                                                    }}>Copy Notes</Button>
+                                                    <Button size="sm" variant={isEditingNotes ? 'secondary' : 'ghost'} onClick={() => {
+                                                        if (!isEditingNotes) {
+                                                            setEditedNotes(notesResult.notes);
+                                                            setIsEditingNotes(true);
+                                                            setShowRawMarkdown(true);
+                                                        } else {
+                                                            setIsEditingNotes(false);
+                                                        }
+                                                    }}>{isEditingNotes ? 'Close Editor' : 'Edit Notes'}</Button>
+                                                    <Button size="sm" variant="ghost" onClick={() => setShowRawMarkdown(s => !s)}>{showRawMarkdown ? 'Hide Raw' : 'Show Raw'}</Button>
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                    <Button size="sm" variant="ghost" onClick={() => setKeywordsCollapsed(k => !k)}>{keywordsCollapsed ? 'Expand Keywords' : 'Collapse Keywords'}</Button>
+                                                </div>
+                                            </div>
+
+                                            {/* Editable textarea for raw/edited notes */}
+                                            {isEditingNotes ? (
+                                                <div className="w-full">
+                                                    <Textarea value={editedNotes ?? ''} onChange={(e) => setEditedNotes(e.target.value)} rows={16} className="w-full font-mono text-sm" />
+                                                    <div className="flex items-center gap-2 mt-2">
+                                                        <Button size="sm" onClick={() => {
+                                                            // Save edited notes into the result so UI updates
+                                                            setNotesResult(prev => prev ? { ...prev, notes: editedNotes ?? prev.notes } : prev);
+                                                            setIsEditingNotes(false);
+                                                            toast({ title: 'Edits saved' });
+                                                        }}>Save Edits</Button>
+                                                        <Button size="sm" variant="ghost" onClick={() => { setEditedNotes(notesResult.notes); setIsEditingNotes(false); }}>Cancel</Button>
+                                                    </div>
+                                                </div>
                                             ) : (
-                                                <div className="rounded-lg border border-gray-200 bg-white dark:bg-gray-900 p-6 shadow-sm">
-                                                    <div className="flex items-start justify-between mb-4 pb-3 border-b border-gray-200">
-                                                        <div>
-                                                            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Organized Study Notes</h2>
-                                                            <div className="mt-2 flex items-center gap-2 flex-wrap">
-                                                                <span className="text-xs px-2 py-1 rounded-md bg-blue-50 text-blue-700 font-medium">{form.getValues().subject || 'General'}</span>
-                                                                {form.getValues().topic && <span className="text-xs px-2 py-1 rounded-md bg-green-50 text-green-700 font-medium">Topic: {form.getValues().topic}</span>}
-                                                                {form.getValues().difficulty && <span className="text-xs px-2 py-1 rounded-md bg-yellow-50 text-yellow-700 font-medium">{form.getValues().difficulty}</span>}
+                                                // Rendered view or raw markdown
+                                                showRawMarkdown ? (
+                                                    <pre className="w-full whitespace-pre-wrap rounded-md bg-muted/30 p-4 text-sm font-mono border border-primary/20 max-h-96 overflow-auto">{editedNotes ?? notesResult.notes}</pre>
+                                                ) : (
+                                                    <div className="rounded-lg border border-gray-200 bg-white dark:bg-gray-900 p-6 shadow-sm">
+                                                        <div className="flex items-start justify-between mb-4 pb-3 border-b border-gray-200">
+                                                            <div>
+                                                                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Organized Study Notes</h2>
+                                                                <div className="mt-2 flex items-center gap-2 flex-wrap">
+                                                                    <span className="text-xs px-2 py-1 rounded-md bg-blue-50 text-blue-700 font-medium">{form.getValues().subject || 'General'}</span>
+                                                                    {form.getValues().topic && <span className="text-xs px-2 py-1 rounded-md bg-green-50 text-green-700 font-medium">Topic: {form.getValues().topic}</span>}
+                                                                    {form.getValues().difficulty && <span className="text-xs px-2 py-1 rounded-md bg-yellow-50 text-yellow-700 font-medium">{form.getValues().difficulty}</span>}
+                                                                </div>
+                                                            </div>
+                                                            <div className="text-xs text-gray-500">{new Date().toLocaleDateString()}</div>
+                                                        </div>
+
+                                                        <div className="text-sm leading-relaxed text-gray-800 dark:text-gray-200" dangerouslySetInnerHTML={{ __html: formatNotesForDisplay(removeActionPlan(notesResult.notes)) }} />
+                                                    </div>
+                                                )
+                                            )}
+
+                                            {notesResult ? (
+                                                <div className="pt-6 mt-6 border-t-2 border-primary/10">
+                                                    <div className="flex items-center justify-between mb-4">
+                                                        <h3 className="text-lg font-semibold flex items-center gap-2 text-primary">
+                                                            <Milestone className="h-5 w-5" />
+                                                            Key Concepts & Definitions
+                                                        </h3>
+                                                        <div className="flex items-center gap-2">
+                                                            <div className="flex items-center gap-3">
+                                                                {isExtractingKeywords && <Loader className="h-4 w-4 animate-spin text-primary" />}
+                                                                <span className="text-sm text-muted-foreground">Keyword explanations shown</span>
                                                             </div>
                                                         </div>
-                                                        <div className="text-xs text-gray-500">{new Date().toLocaleDateString()}</div>
+                                                        {notesResult.keywords && notesResult.keywords.length > 0 && (
+                                                            <div className="flex items-center gap-2">
+                                                                <Button size="sm" variant="outline" onClick={() => {
+                                                                    const text = notesResult.keywords?.map(k => `${k.term}: ${k.explanation}`).join('\n\n') || '';
+                                                                    navigator.clipboard.writeText(text);
+                                                                    toast({ title: 'Keywords copied' });
+                                                                }} className="text-xs">{keywordsCollapsed ? 'Show All' : 'Copy All'}</Button>
+                                                            </div>
+                                                        )}
                                                     </div>
 
-                                                    <div className="text-sm leading-relaxed text-gray-800 dark:text-gray-200" dangerouslySetInnerHTML={{ __html: formatNotesForDisplay(removeActionPlan(notesResult.notes)) }} />
-                                                </div>
-                                            )
-                                        )}
-
-                                        {notesResult ? (
-                                            <div className="pt-6 mt-6 border-t-2 border-primary/10">
-                                                <div className="flex items-center justify-between mb-4">
-                                                    <h3 className="text-lg font-semibold flex items-center gap-2 text-primary">
-                                                        <Milestone className="h-5 w-5" />
-                                                        Key Concepts & Definitions
-                                                    </h3>
-                                                    <div className="flex items-center gap-2">
-                                                        <div className="flex items-center gap-3">
-                                                            {isExtractingKeywords && <Loader className="h-4 w-4 animate-spin text-primary" />}
-                                                            <span className="text-sm text-muted-foreground">Keyword explanations shown</span>
+                                                    {/* Show keywords as an accordion when available; otherwise show a small notice */}
+                                                    {notesResult.keywords && notesResult.keywords.length > 0 && !keywordsCollapsed ? (
+                                                        <Accordion type="single" collapsible className="w-full">
+                                                            {notesResult.keywords.map((item, index) => (
+                                                                <AccordionItem key={index} value={`item-${index}`} className="border-l-2 border-primary/30 pl-2">
+                                                                    <AccordionTrigger className="flex items-center justify-between group hover:no-underline py-3">
+                                                                        <span className="flex-1 text-left font-semibold text-sm text-foreground">{item.term}</span>
+                                                                        <Button asChild size="sm" variant="ghost" className="opacity-0 group-hover:opacity-100 transition-opacity ml-2 flex-shrink-0">
+                                                                            <span onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(item.explanation); toast({ title: 'Keyword copied' }); }} className="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm">Copy</span>
+                                                                        </Button>
+                                                                    </AccordionTrigger>
+                                                                    <AccordionContent className="pb-4">
+                                                                        <div className="bg-muted/30 rounded-md p-3 text-card-foreground text-sm leading-relaxed">
+                                                                            {item.explanation}
+                                                                        </div>
+                                                                    </AccordionContent>
+                                                                </AccordionItem>
+                                                            ))}
+                                                        </Accordion>
+                                                    ) : (!isExtractingKeywords && (!notesResult.keywords || notesResult.keywords.length === 0) ? (
+                                                        <div className="p-3 bg-amber-50 border border-amber-200 rounded-md">
+                                                            <p className="text-sm text-amber-800">No keyword explanations are available. Try regenerating notes to attempt AI extraction again.</p>
                                                         </div>
-                                                    </div>
-                                                    {notesResult.keywords && notesResult.keywords.length > 0 && (
-                                                        <div className="flex items-center gap-2">
-                                                            <Button size="sm" variant="outline" onClick={() => {
-                                                                const text = notesResult.keywords?.map(k => `${k.term}: ${k.explanation}`).join('\n\n') || '';
-                                                                navigator.clipboard.writeText(text);
-                                                                toast({ title: 'Keywords copied' });
-                                                            }} className="text-xs">{keywordsCollapsed ? 'Show All' : 'Copy All'}</Button>
-                                                        </div>
-                                                    )}
+                                                    ) : null)}
                                                 </div>
+                                            ) : null}
+                                        </CardContent>
+                                    </Card>
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
 
-                                                {/* Show keywords as an accordion when available; otherwise show a small notice */}
-                                                {notesResult.keywords && notesResult.keywords.length > 0 && !keywordsCollapsed ? (
-                                                    <Accordion type="single" collapsible className="w-full">
-                                                        {notesResult.keywords.map((item, index) => (
-                                                            <AccordionItem key={index} value={`item-${index}`} className="border-l-2 border-primary/30 pl-2">
-                                                                <AccordionTrigger className="flex items-center justify-between group hover:no-underline py-3">
-                                                                    <span className="flex-1 text-left font-semibold text-sm text-foreground">{item.term}</span>
-                                                                    <Button asChild size="sm" variant="ghost" className="opacity-0 group-hover:opacity-100 transition-opacity ml-2 flex-shrink-0">
-                                                                        <span onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(item.explanation); toast({ title: 'Keyword copied' }); }} className="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm">Copy</span>
-                                                                    </Button>
-                                                                </AccordionTrigger>
-                                                                <AccordionContent className="pb-4">
-                                                                    <div className="bg-muted/30 rounded-md p-3 text-card-foreground text-sm leading-relaxed">
-                                                                        {item.explanation}
-                                                                    </div>
-                                                                </AccordionContent>
-                                                            </AccordionItem>
-                                                        ))}
-                                                    </Accordion>
-                                                ) : (!isExtractingKeywords && (!notesResult.keywords || notesResult.keywords.length === 0) ? (
-                                                    <div className="p-3 bg-amber-50 border border-amber-200 rounded-md">
-                                                        <p className="text-sm text-amber-800">No keyword explanations are available. Try regenerating notes to attempt AI extraction again.</p>
-                                                    </div>
-                                                ) : null)}
-                                            </div>
-                                        ) : null}
-                                    </CardContent>
-                                </Card>
-                            </motion.div>
-                        )}
-                    </AnimatePresence>
-
-                    {!notesResult && !isLoading && (
-                        <div className="flex flex-col items-center justify-center text-center p-8 border-2 border-dashed border-primary/30 rounded-lg h-full bg-gradient-to-br from-primary/5 to-transparent">
-                            <div className="p-4 bg-primary/10 rounded-full mb-4">
-                                <BookCopy className="h-12 w-12 text-primary" />
+                        {!notesResult && !isLoading && (
+                            <div className="flex flex-col items-center justify-center text-center p-8 border-2 border-dashed border-primary/30 rounded-lg h-full bg-gradient-to-br from-primary/5 to-transparent">
+                                <div className="p-4 bg-primary/10 rounded-full mb-4">
+                                    <BookCopy className="h-12 w-12 text-primary" />
+                                </div>
+                                <h3 className="text-lg font-semibold text-foreground mb-2">No Notes Yet</h3>
+                                <p className="text-muted-foreground text-sm max-w-xs">Fill out the form on the left and upload a document or enter a topic to get started with your AI-powered notes.</p>
                             </div>
-                            <h3 className="text-lg font-semibold text-foreground mb-2">No Notes Yet</h3>
-                            <p className="text-muted-foreground text-sm max-w-xs">Fill out the form on the left and upload a document or enter a topic to get started with your AI-powered notes.</p>
-                        </div>
-                    )}
+                        )}
                     </div>
                 </div>
             </div>

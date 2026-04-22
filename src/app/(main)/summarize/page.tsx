@@ -22,6 +22,7 @@ import { collection, doc, addDoc, serverTimestamp } from 'firebase/firestore';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import PageHeader from '@/components/app/page-header';
 import { AnimatePresence, motion } from 'framer-motion';
+import { AiLoadingScreen } from '@/components/app/ai-loading';
 import { extractTextFromImage } from '@/ai/flows/extract-text-from-image';
 import { useRouter } from 'next/navigation';
 
@@ -396,15 +397,7 @@ export default function SummarizePage() {
                                 animate={{ opacity: 1, y: 0 }}
                                 exit={{ opacity: 0, y: -20 }}
                             >
-                                <Card>
-                                    <CardHeader>
-                                        <CardTitle>Generating Summary</CardTitle>
-                                        <CardDescription>The AI is processing your content. Please wait a moment.</CardDescription>
-                                    </CardHeader>
-                                    <CardContent className='flex justify-center items-center py-16'>
-                                        <Loader className="h-10 w-10 animate-spin text-primary" />
-                                    </CardContent>
-                                </Card>
+                                <AiLoadingScreen variant="summarize" title="Summarizing your content..." />
                             </motion.div>
                         )}
 
