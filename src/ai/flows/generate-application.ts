@@ -29,7 +29,7 @@ export async function generateApplication(input: GenerateApplicationInput): Prom
 
 const prompt = ai.definePrompt({
   name: 'generateApplicationPrompt',
-  model: 'googleai/gemini-2.0-flash',
+  model: 'googleai/gemini-2.5-flash',
   input: { schema: GenerateApplicationInputSchema },
   output: { schema: GenerateApplicationOutputSchema },
   prompt: `You are an expert at writing formal applications. Your task is to generate a COMPLETE, well-structured application based on the provided topic, optional pattern, and any additional user-provided information.

@@ -38,7 +38,7 @@ export async function checkQuizAnswerAndExplain(
 
 const prompt = ai.definePrompt({
   name: 'checkQuizAnswerAndExplainPrompt',
-  model: 'googleai/gemini-2.0-flash',
+  model: 'googleai/gemini-2.5-flash',
   input: { schema: CheckQuizAnswerAndExplainInputSchema },
   output: { schema: CheckQuizAnswerAndExplainOutputSchema },
   prompt: `You are an AI quiz checker that helps students understand their mistakes.

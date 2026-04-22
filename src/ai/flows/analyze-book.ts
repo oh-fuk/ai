@@ -32,7 +32,7 @@ export async function analyzeBook(input: AnalyzeBookInput): Promise<AnalyzeBookO
 
 const prompt = ai.definePrompt({
   name: 'analyzeBookPrompt',
-  model: 'googleai/gemini-2.0-flash',
+  model: 'googleai/gemini-2.5-flash',
   input: { schema: AnalyzeBookInputSchema },
   output: { schema: AnalyzeBookOutputSchema },
   prompt: `You are an expert academic analyst. Your task is to process a textbook PDF for a specific subject, extract its content, and provide a structured analysis.

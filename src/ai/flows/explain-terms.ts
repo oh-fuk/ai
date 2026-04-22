@@ -34,7 +34,7 @@ export async function explainTerms(input: ExplainTermsInput): Promise<ExplainTer
 
 const prompt = ai.definePrompt({
     name: 'explainTermsPrompt',
-    model: 'googleai/gemini-2.0-flash',
+    model: 'googleai/gemini-2.5-flash',
     input: { schema: ExplainTermsInputSchema },
     output: { schema: ExplainTermsOutputSchema },
     prompt: `You are an expert educator. Your task is to explain the provided terms clearly and simply so a student can understand them.

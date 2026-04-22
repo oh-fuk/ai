@@ -59,7 +59,7 @@ export async function generatePaperFromPrompt(
 
 const prompt = ai.definePrompt({
   name: 'generatePaperPrompt',
-  model: 'googleai/gemini-2.0-flash',
+  model: 'googleai/gemini-2.5-flash',
   input: {
     schema: z.object({
       ...GeneratePaperInputSchema.shape,

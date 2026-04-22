@@ -33,7 +33,7 @@ export async function generateRemedialQuiz(
 
 const prompt = ai.definePrompt({
   name: 'generateRemedialQuizPrompt',
-  model: 'googleai/gemini-2.0-flash',
+  model: 'googleai/gemini-2.5-flash',
   input: { schema: GenerateRemedialQuizInputSchema },
   output: { schema: GenerateRemedialQuizOutputSchema },
   prompt: `You are an expert academic tutor. Your task is to analyze a student's quiz history to identify their weakest topic and then generate a targeted multiple-choice quiz to help them improve.

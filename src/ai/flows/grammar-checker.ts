@@ -34,7 +34,7 @@ export async function checkGrammar(input: GrammarCheckerInput): Promise<GrammarC
 
 const prompt = ai.definePrompt({
   name: 'grammarCheckerPrompt',
-  model: 'googleai/gemini-2.0-flash',
+  model: 'googleai/gemini-2.5-flash',
   input: { schema: GrammarCheckerInputSchema },
   output: { schema: GrammarCheckerOutputSchema },
   prompt: `You are an expert grammar and proofreading assistant. Your task is to analyze the following text, identify any grammatical errors, and provide clear corrections and explanations.
