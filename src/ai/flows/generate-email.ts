@@ -29,7 +29,7 @@ export async function generateEmail(input: GenerateEmailInput): Promise<Generate
 
 const prompt = ai.definePrompt({
   name: 'generateEmailPrompt',
-  model: 'googleai/gemini-2.5-pro',
+  model: 'googleai/gemini-2.0-flash',
   input: { schema: GenerateEmailInputSchema },
   output: { schema: GenerateEmailOutputSchema },
   prompt: `You are an email formatter. Generate emails in ORGANIZED FORMAT ONLY.

@@ -18,7 +18,7 @@ import {
 
 const generateNotesPrompt = ai.definePrompt({
   name: 'generateNotesPrompt',
-  model: 'googleai/gemini-2.5-pro',  // Gemini 2.5 Pro with 1M context
+  model: 'googleai/gemini-2.0-flash',  // Gemini 2.5 Pro with 1M context
   input: { schema: GenerateNotesInputSchema },
   output: { 
     schema: GenerateNotesOutputSchema,
@@ -137,7 +137,7 @@ export async function generateNotes(input: GenerateNotesInput): Promise<Generate
 
 const extractKeywordsPrompt = ai.definePrompt({
   name: 'extractKeywordsPrompt',
-  model: 'googleai/gemini-2.5-pro',
+  model: 'googleai/gemini-2.0-flash',
   input: { schema: ExtractKeywordsInputSchema },
   output: { schema: ExtractKeywordsOutputSchema },
   prompt: `You are a concise knowledge extractor. From the provided study notes, produce a list of the most important terms and a one‑sentence explanation for each.

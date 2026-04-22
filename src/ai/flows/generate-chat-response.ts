@@ -67,7 +67,7 @@ export async function generateChatResponse(
 
 const prompt = ai.definePrompt({
   name: 'chatPrompt',
-  model: 'googleai/gemini-2.5-pro',
+  model: 'googleai/gemini-2.0-flash',
   input: { schema: GenerateChatResponseInputSchema },
   tools: [getTodayStudyTask],
   prompt: `You are Athena AI, a helpful and professional AI assistant for students. Your job is to provide clear, friendly, and well-organized answers.

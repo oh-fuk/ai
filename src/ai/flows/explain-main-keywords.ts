@@ -37,7 +37,7 @@ export async function explainMainKeywords(input: ExplainMainKeywordsInput): Prom
 
 const prompt = ai.definePrompt({
   name: 'explainMainKeywordsPrompt',
-  model: 'googleai/gemini-2.5-pro',
+  model: 'googleai/gemini-2.0-flash',
   input: { schema: ExplainMainKeywordsInputSchema },
   output: { schema: ExplainMainKeywordsOutputSchema },
   prompt: `You are an expert lexicographer. Your goal is to provide a detailed explanation for each of the provided main keywords based on the full text.

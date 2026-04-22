@@ -37,7 +37,7 @@ export async function extractTextFromPdf(
 
 const prompt = ai.definePrompt({
   name: 'extractTextFromPdfPrompt',
-  model: 'googleai/gemini-2.5-pro',
+  model: 'googleai/gemini-2.0-flash',
   input: { schema: PdfToTextInputSchema },
   output: { schema: PdfToTextOutputSchema },
   prompt: `You are an expert data extractor. Your task is to extract all the text content from the provided PDF document.

@@ -33,7 +33,7 @@ export async function generateQuizFromTopic(input: GenerateQuizFromTopicInput): 
 
 const prompt = ai.definePrompt({
   name: 'generateQuizFromTopicPrompt',
-  model: 'googleai/gemini-2.5-pro',
+  model: 'googleai/gemini-2.0-flash',
   input: { schema: GenerateQuizFromTopicInputSchema },
   output: { schema: GenerateQuizFromTopicOutputSchema },
   prompt: `You are a quiz generator. Given a topic, generate a quiz with the specified number of questions.

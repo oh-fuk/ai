@@ -36,7 +36,7 @@ export async function generateQuizFromChat(input: GenerateQuizFromChatInput): Pr
 
 const prompt = ai.definePrompt({
   name: 'generateQuizFromChatPrompt',
-  model: 'googleai/gemini-2.5-pro',
+  model: 'googleai/gemini-2.0-flash',
   input: { schema: GenerateQuizFromChatInputSchema },
   output: { schema: GenerateQuizFromChatOutputSchema },
   prompt: `You are a quiz generator. Given a topic, generate a quiz with the specified number of questions.

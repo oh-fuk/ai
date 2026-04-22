@@ -28,7 +28,7 @@ export async function generateLetter(input: GenerateLetterInput): Promise<Genera
 
 const prompt = ai.definePrompt({
   name: 'generateLetterPrompt',
-  model: 'googleai/gemini-2.5-pro',
+  model: 'googleai/gemini-2.0-flash',
   input: { schema: GenerateLetterInputSchema },
   output: { schema: GenerateLetterOutputSchema },
   prompt: `You are an expert at writing letters. Your task is to generate a COMPLETE letter based on the provided topic, optional pattern, and any additional information.

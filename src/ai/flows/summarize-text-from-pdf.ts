@@ -35,7 +35,7 @@ export async function summarizeText(input: SummarizeTextInput): Promise<Summariz
 
 const prompt = ai.definePrompt({
   name: 'summarizeTextPrompt',
-  model: 'googleai/gemini-2.5-pro',
+  model: 'googleai/gemini-2.0-flash',
   input: { schema: SummarizeTextInputSchema },
   output: { schema: SummarizeTextOutputSchema },
   prompt: `Summarize the following content. IMPORTANT: Do not use any special characters or symbols in your response.
