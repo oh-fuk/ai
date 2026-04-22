@@ -25,6 +25,8 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { AiLoadingScreen } from '@/components/app/ai-loading';
 import PageHeader from '@/components/app/page-header';
+import { Confetti } from '@/components/app/confetti';
+import { DifficultyPredictor } from '@/components/app/difficulty-predictor';
 import { generateQuizFromPdf } from '@/ai/flows/generate-quiz-from-pdf';
 import { generateQuizFromTopic } from '@/ai/flows/generate-quiz-from-topic';
 import { generateRemedialQuiz } from '@/ai/flows/generate-remedial-quiz';
@@ -102,6 +104,8 @@ export default function QuizPage() {
   const [quiz, setQuiz] = useState<Quiz | null>(null);
   const [userAnswers, setUserAnswers] = useState<Record<number, string>>({});
   const [results, setResults] = useState<AnswerResult[] | null>(null);
+  const [showConfetti, setShowConfetti] = useState(false);
+  const [finalScorePct, setFinalScorePct] = useState(0);
   const { toast } = useToast();
   const { user } = useUser();
   const firestore = useFirestore();
@@ -388,6 +392,9 @@ export default function QuizPage() {
       }
 
       setResults(newResults);
+      const pct = (score / quiz.questions.length) * 100;
+      setFinalScorePct(pct);
+      setShowConfetti(true);
       toast({
         title: isImproving ? "Quiz Updated!" : "Quiz Submitted!",
         description: "Your results have been saved to your progress."
@@ -488,6 +495,7 @@ export default function QuizPage() {
 
   return (
     <div className="flex flex-col gap-8">
+      <Confetti trigger={showConfetti} score={finalScorePct} />
       <PageHeader
         title="Quiz Generator"
         description="Create custom quizzes from your study materials to test your knowledge."
@@ -675,6 +683,11 @@ export default function QuizPage() {
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Difficulty</FormLabel>
+                        <DifficultyPredictor
+                          quizAttempts={quizAttempts}
+                          selectedSubject={form.watch('subject')}
+                          onSuggest={(d) => form.setValue('difficulty', d)}
+                        />
                         <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
                           <FormControl>
                             <SelectTrigger>

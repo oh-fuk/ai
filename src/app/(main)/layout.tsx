@@ -14,6 +14,7 @@ import { cn } from "@/lib/utils";
 import Link from 'next/link';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import BackButton from '@/components/app/back-button';
+import { MusicPlayer } from '@/components/app/music-player';
 
 // Lazy load sidebar for better performance
 const AppSidebar = dynamic(() => import("@/app/(main)/app-sidebar"), {
@@ -146,6 +147,7 @@ export default function AppLayout({
             </SidebarInset>
           </div>
         </SidebarProvider>
+        <MusicPlayer />
       </NotificationProvider>
     </AuthGuard>
   );
