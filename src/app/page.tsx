@@ -14,8 +14,11 @@ import { AthenaLogo } from "@/components/app/logo";
 import schoolLogo from "@/LOGO/college.png";
 import Image from "next/image";
 
-// Load 3D scene only on client — avoids SSR crash with React 19
-const ThreeScene = dynamic(() => import("@/components/app/three-scene"), { ssr: false });
+// 3D scene — client only, no SSR (fixes React 19 + three.js crash)
+const ThreeScene = dynamic(() => import("@/components/app/three-scene"), {
+  ssr: false,
+  loading: () => <div className="absolute inset-0 bg-gradient-to-b from-[#0a0a2e] to-[#0a0a1a]" />,
+});
 
 /* ─── Background Music ───────────────────────────────────────────────────── */
 function BackgroundMusic() {
@@ -47,87 +50,6 @@ function BackgroundMusic() {
     >
       {isPlaying ? <Volume2 className="w-6 h-6 animate-pulse" /> : <Play className="w-6 h-6" />}
     </motion.button>
-  );
-}
-
-/* ─── 3D Ocean ───────────────────────────────────────────────────────────── */
-function Ocean() {
-  const materialRef = useRef<THREE.ShaderMaterial>(null);
-
-  const vertexShader = `
-    uniform float uTime;
-    varying vec2 vUv;
-    varying float vElevation;
-    void main() {
-      vUv = uv;
-      vec3 pos = position;
-      float elevation = sin(pos.x * 2.0 + uTime) * 0.2;
-      elevation += sin(pos.y * 3.0 + uTime * 0.8) * 0.2;
-      elevation += sin((pos.x + pos.y) * 1.5 + uTime * 1.2) * 0.1;
-      pos.z += elevation;
-      vElevation = elevation;
-      gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0);
-    }
-  `;
-
-  const fragmentShader = `
-    uniform float uTime;
-    varying vec2 vUv;
-    varying float vElevation;
-    void main() {
-      vec3 deepColor = vec3(0.0, 0.2, 0.4);
-      vec3 surfaceColor = vec3(0.0, 0.6, 0.8);
-      vec3 foamColor = vec3(0.8, 0.9, 1.0);
-      float mixStrength = (vElevation + 0.5) * 0.8;
-      vec3 color = mix(deepColor, surfaceColor, mixStrength);
-      if (vElevation > 0.35) color = mix(color, foamColor, (vElevation - 0.35) * 3.0);
-      gl_FragColor = vec4(color, 0.85);
-    }
-  `;
-
-  useFrame((state) => {
-    if (materialRef.current)
-      materialRef.current.uniforms.uTime.value = state.clock.elapsedTime;
-  });
-
-  return (
-    <mesh rotation={[-Math.PI / 2.5, 0, 0]} position={[0, -2, 0]}>
-      <planeGeometry args={[30, 30, 128, 128]} />
-      <shaderMaterial
-        ref={materialRef}
-        vertexShader={vertexShader}
-        fragmentShader={fragmentShader}
-        uniforms={{ uTime: { value: 0 } }}
-        transparent
-        side={THREE.DoubleSide}
-      />
-    </mesh>
-  );
-}
-
-/* ─── Floating Particles ─────────────────────────────────────────────────── */
-function FloatingParticles() {
-  const ref = useRef<THREE.Points>(null);
-  const count = 200;
-  const positions = new Float32Array(count * 3);
-  for (let i = 0; i < count; i++) {
-    positions[i * 3] = (Math.random() - 0.5) * 20;
-    positions[i * 3 + 1] = (Math.random() - 0.5) * 10;
-    positions[i * 3 + 2] = (Math.random() - 0.5) * 20;
-  }
-  useFrame((state) => {
-    if (ref.current) {
-      ref.current.rotation.y = state.clock.elapsedTime * 0.05;
-      ref.current.rotation.x = Math.sin(state.clock.elapsedTime * 0.1) * 0.1;
-    }
-  });
-  return (
-    <points ref={ref}>
-      <bufferGeometry>
-        <bufferAttribute attach="attributes-position" count={count} array={positions} itemSize={3} />
-      </bufferGeometry>
-      <pointsMaterial size={0.05} color="#00d4ff" transparent opacity={0.6} sizeAttenuation />
-    </points>
   );
 }
 
@@ -242,6 +164,7 @@ export default function LandingPage() {
 
       {/* ── Hero with 3D ── */}
       <section className="relative h-screen flex items-center justify-center overflow-hidden">
+        {/* 3D Canvas — client only */}
         <div className="absolute inset-0 z-0">
           <ThreeScene />
         </div>
@@ -287,7 +210,8 @@ export default function LandingPage() {
           <motion.div className="absolute bottom-10 left-1/2 -translate-x-1/2"
             animate={{ y: [0, 10, 0] }} transition={{ repeat: Infinity, duration: 2 }}>
             <div className="w-6 h-10 rounded-full border-2 border-white/30 flex items-start justify-center p-2">
-              <motion.div className="w-1.5 h-1.5 rounded-full bg-cyan-400" animate={{ y: [0, 12, 0] }} transition={{ repeat: Infinity, duration: 2 }} />
+              <motion.div className="w-1.5 h-1.5 rounded-full bg-cyan-400"
+                animate={{ y: [0, 12, 0] }} transition={{ repeat: Infinity, duration: 2 }} />
             </div>
           </motion.div>
         </div>

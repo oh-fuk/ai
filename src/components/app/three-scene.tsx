@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useRef } from "react";
+import { Suspense, useRef, useMemo } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
 import { Stars, Environment } from "@react-three/drei";
 import * as THREE from "three";
@@ -62,23 +62,31 @@ function Ocean() {
 function FloatingParticles() {
     const ref = useRef<THREE.Points>(null);
     const count = 200;
-    const positions = new Float32Array(count * 3);
-    for (let i = 0; i < count; i++) {
-        positions[i * 3] = (Math.random() - 0.5) * 20;
-        positions[i * 3 + 1] = (Math.random() - 0.5) * 10;
-        positions[i * 3 + 2] = (Math.random() - 0.5) * 20;
-    }
+    const positions = useMemo(() => {
+        const arr = new Float32Array(count * 3);
+        for (let i = 0; i < count; i++) {
+            arr[i * 3] = (Math.random() - 0.5) * 20;
+            arr[i * 3 + 1] = (Math.random() - 0.5) * 10;
+            arr[i * 3 + 2] = (Math.random() - 0.5) * 20;
+        }
+        return arr;
+    }, []);
+
     useFrame((state) => {
         if (ref.current) {
             ref.current.rotation.y = state.clock.elapsedTime * 0.05;
             ref.current.rotation.x = Math.sin(state.clock.elapsedTime * 0.1) * 0.1;
         }
     });
+
+    const geo = useMemo(() => {
+        const g = new THREE.BufferGeometry();
+        g.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+        return g;
+    }, [positions]);
+
     return (
-        <points ref={ref}>
-            <bufferGeometry>
-                <bufferAttribute attach="attributes-position" count={count} array={positions} itemSize={3} />
-            </bufferGeometry>
+        <points ref={ref} geometry={geo}>
             <pointsMaterial size={0.05} color="#00d4ff" transparent opacity={0.6} sizeAttenuation />
         </points>
     );
