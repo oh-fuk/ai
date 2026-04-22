@@ -18,7 +18,7 @@ const config: Record<Difficulty, {
     color: string;
     bg: string;
     border: string;
-    icon: React.ElementType;
+    icon: React.ComponentType<{ className?: string }>;
     message: string;
 }> = {
     easy: {

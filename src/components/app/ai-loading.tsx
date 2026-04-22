@@ -66,7 +66,7 @@ function SkeletonLines({ count = 4 }: { count?: number }) {
 }
 
 /* ─── Rotating icon with glow ───────────────────────────────────────────── */
-function SpinningIcon({ icon: Icon, color = 'text-primary' }: { icon: React.ElementType; color?: string }) {
+function SpinningIcon({ icon: Icon, color = 'text-primary' }: { icon: React.ComponentType<{ className?: string }>; color?: string }) {
     return (
         <div className="relative flex items-center justify-center">
             {/* Glow ring */}

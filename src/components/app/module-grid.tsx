@@ -9,7 +9,7 @@ import PageHeader from "@/components/app/page-header";
 export interface ModuleItem {
     title: string;
     description: string;
-    icon: React.ElementType;
+    icon: React.ComponentType<{ className?: string }>;
     href: string;
 }
 

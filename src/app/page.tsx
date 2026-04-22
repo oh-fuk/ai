@@ -55,7 +55,7 @@ function BackgroundMusic() {
 
 /* ─── Feature Card ───────────────────────────────────────────────────────── */
 function FeatureCard({ icon: Icon, title, description, delay, color }: {
-  icon: React.ElementType; title: string; description: string; delay: number; color: string;
+  icon: React.ComponentType<{ className?: string }>; title: string; description: string; delay: number; color: string;
 }) {
   return (
     <motion.div
@@ -90,7 +90,7 @@ export default function LandingPage() {
     return () => window.removeEventListener("scroll", fn);
   }, []);
 
-  const features = [
+  const features: { icon: React.ComponentType<{ className?: string }>; title: string; description: string; color: string }[] = [
     { icon: MessageCircle, title: "AI Chat", description: "Context-aware AI advisor that knows your study patterns and history.", color: "from-purple-500 to-pink-500" },
     { icon: Brain, title: "Quiz Generator", description: "Auto-generate quizzes from topics, PDFs, or your weakest subjects.", color: "from-blue-500 to-cyan-500" },
     { icon: FileText, title: "Paper Generator", description: "Full practice exam papers with MCQs, short & long questions.", color: "from-green-500 to-emerald-500" },
@@ -105,7 +105,7 @@ export default function LandingPage() {
     { icon: SpellCheck, title: "Grammar Checker", description: "Check your writing for grammatical errors with explanations.", color: "from-emerald-500 to-green-500" },
   ];
 
-  const stats = [
+  const stats: { icon: React.ComponentType<{ className?: string }>; value: string; label: string }[] = [
     { icon: Users, value: "50K+", label: "Active Students" },
     { icon: BookOpen, value: "1M+", label: "Questions Solved" },
     { icon: Zap, value: "99.9%", label: "Uptime" },
