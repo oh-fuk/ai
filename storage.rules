@@ -1,0 +1,12 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Allow users to read, write, and delete files in their own user-specific folder.
+    // e.g., /avatars/{userId}/<fileName> or /portfolios/{userId}/<fileName>
+    match /{path}/{userId}/{allPaths=**} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && request.auth.uid == userId;
+    }
+  }
+}
