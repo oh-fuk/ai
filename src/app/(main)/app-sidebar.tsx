@@ -20,18 +20,18 @@ import { motion, AnimatePresence } from "framer-motion";
 
 /* ─── Nav data ─────────────────────────────────────────────────────────── */
 
-const mainItems = [
+const mainItems: { href: string; label: string; icon: NavIcon; notificationKey?: string }[] = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, notificationKey: "dashboard" },
   { href: "/chat", label: "AI Chat", icon: MessageCircle, notificationKey: "chat" },
 ];
 
-const generatorItems = [
+const generatorItems: { href: string; label: string; icon: NavIcon }[] = [
   { href: "/quiz", label: "Quiz Generator", icon: BrainCircuit },
   { href: "/paper-generator", label: "Paper Generator", icon: PenSquare },
   { href: "/guess-paper", label: "Guess Paper", icon: FileCheck },
 ];
 
-const analysisItems = [
+const analysisItems: { href: string; label: string; icon: NavIcon }[] = [
   { href: "/analyzer/text-analyzer", label: "Text Analyzer", icon: Sigma },
   { href: "/summarize", label: "Summarizer", icon: FileSearch },
   { href: "/notes-maker", label: "Notes Maker", icon: BookCopy },
@@ -39,14 +39,14 @@ const analysisItems = [
   { href: "/analyzer/grammar-checker", label: "Grammar Checker", icon: SpellCheck },
 ];
 
-const writingItems = [
+const writingItems: { href: string; label: string; icon: NavIcon }[] = [
   { href: "/writing/essay", label: "Essay Writer", icon: PenSquare },
   { href: "/writing/email", label: "Email Writer", icon: FileText },
   { href: "/writing/application", label: "Application Writer", icon: Briefcase },
   { href: "/writing/letter", label: "Letter Writer", icon: BookOpen },
 ];
 
-const toolItems = [
+const toolItems: { href: string; label: string; icon: NavIcon; notificationKey?: string }[] = [
   { href: "/tasks", label: "My Tasks", icon: CheckSquare, notificationKey: "tasks" },
   { href: "/planner", label: "Study Planner", icon: CalendarDays, notificationKey: "planner" },
   { href: "/timer", label: "Study Timer", icon: Timer, notificationKey: "timer" },
@@ -56,6 +56,8 @@ const toolItems = [
 
 /* ─── Collapsible group ─────────────────────────────────────────────────── */
 
+type NavIcon = React.ComponentType<{ className?: string }>;
+
 function NavGroup({
   label,
   icon: Icon,
@@ -64,9 +66,9 @@ function NavGroup({
   pathname,
 }: {
   label: string;
-  icon: React.ElementType;
+  icon: NavIcon;
   href: string;
-  items: { href: string; label: string; icon: React.ElementType }[];
+  items: { href: string; label: string; icon: NavIcon }[];
   pathname: string;
 }) {
   const isGroupActive = pathname.startsWith(href) || items.some(i => pathname.startsWith(i.href));
@@ -116,7 +118,7 @@ function NavItem({
   indent = false,
   notificationKey,
 }: {
-  item: { href: string; label: string; icon: React.ElementType };
+  item: { href: string; label: string; icon: NavIcon };
   pathname: string;
   indent?: boolean;
   notificationKey?: string;
@@ -196,7 +198,7 @@ const AppSidebar = memo(function AppSidebar() {
           {/* Tools */}
           <SectionLabel>Tools</SectionLabel>
           {toolItems.map(item => (
-            <NavItem key={item.href} item={item} pathname={pathname} notificationKey={(item as any).notificationKey} />
+            <NavItem key={item.href} item={item} pathname={pathname} notificationKey={item.notificationKey} />
           ))}
         </div>
       </SidebarContent>
