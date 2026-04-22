@@ -9,7 +9,7 @@
  */
 
 import { ai } from '@/ai/genkit';
-import { z } from 'zod';
+import { z } from 'genkit';
 
 const GrammarCheckerInputSchema = z.object({
   text: z.string().describe('The text to be checked for grammatical errors.'),

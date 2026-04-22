@@ -9,7 +9,7 @@
  */
 
 import { ai } from '@/ai/genkit';
-import { z } from 'zod';
+import { z } from 'genkit';
 
 const AnalyzeBookInputSchema = z.object({
   bookPdfDataUri: z.string().describe("The textbook PDF as a data URI."),

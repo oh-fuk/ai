@@ -10,7 +10,7 @@
  */
 
 import { ai } from '@/ai/genkit';
-import { z } from 'zod';
+import { z } from 'genkit';
 
 const GenerateQuizFromTopicInputSchema = z.object({
   topic: z.string().describe('The topic of the quiz.'),

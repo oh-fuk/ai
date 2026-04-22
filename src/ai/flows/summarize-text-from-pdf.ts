@@ -8,7 +8,7 @@
  */
 
 import { ai } from '@/ai/genkit';
-import { z } from 'zod';
+import { z } from 'genkit';
 
 const SummarizeTextInputSchema = z.object({
   text: z.string().optional().describe('The text to summarize.'),

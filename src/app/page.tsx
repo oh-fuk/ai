@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState, useEffect, useRef } from "react";
 import dynamic from "next/dynamic";
@@ -79,35 +79,7 @@ function FeatureCard({ icon: Icon, title, description, delay, color }: {
   );
 }
 
-/* ─── Animated text reveal ───────────────────────────────────────────────── */
-const letterVariants = {
-  hidden: { opacity: 0, y: 60, scale: 0.5, filter: "blur(12px)" },
-  visible: (i: number) => ({
-    opacity: 1, y: 0, scale: 1, filter: "blur(0px)",
-    transition: { delay: i * 0.055, duration: 0.6, ease: [0.22, 1, 0.36, 1] },
-  }),
-};
-
-function AnimatedWord({ text, className, startDelay = 0 }: {
-  text: string; className: string; startDelay?: number;
-}) {
-  return (
-    <span className={`inline-flex flex-wrap justify-center ${className}`}>
-      {text.split("").map((char, i) => (
-        <motion.span
-          key={i}
-          custom={startDelay + i}
-          variants={letterVariants}
-          initial="hidden"
-          animate="visible"
-          className="inline-block"
-        >
-          {char === " " ? "\u00A0" : char}
-        </motion.span>
-      ))}
-    </span>
-  );
-}
+/* ─── Page ───────────────────────────────────────────────────────────────── */
 export default function LandingPage() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
@@ -161,10 +133,10 @@ export default function LandingPage() {
             </div>
             <div className="hidden md:flex items-center gap-4">
               <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                <Link href="/login" className="px-6 py-2.5 rounded-full border border-white/20 text-white hover:bg-white/10 transition-all inline-block">Log In</Link>
+                <Link href="/login" className="px-6 py-2.5 rounded-full border border-cyan-500/40 text-white hover:border-cyan-400 hover:bg-cyan-500/10 hover:text-cyan-300 transition-all duration-200 inline-block">Log In</Link>
               </motion.div>
               <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                <Link href="/register" className="px-6 py-2.5 rounded-full bg-gradient-to-r from-cyan-500 to-blue-600 text-white font-medium shadow-lg shadow-cyan-500/25 inline-block">Sign Up Free</Link>
+                <Link href="/register" className="px-6 py-2.5 rounded-full bg-gradient-to-r from-cyan-500 to-blue-600 text-white font-medium shadow-lg shadow-cyan-500/25 hover:shadow-cyan-500/50 hover:brightness-110 transition-all duration-200 inline-block">Sign Up Free</Link>
               </motion.div>
             </div>
             <button className="md:hidden text-white" onClick={() => setMenuOpen(!menuOpen)}>
@@ -181,8 +153,8 @@ export default function LandingPage() {
                   <a key={item} href={`#${item.toLowerCase()}`} className="block text-gray-300 hover:text-white py-2">{item}</a>
                 ))}
                 <div className="pt-4 space-y-3">
-                  <Link href="/login" className="block w-full py-3 rounded-full border border-white/20 text-white text-center">Log In</Link>
-                  <Link href="/register" className="block w-full py-3 rounded-full bg-gradient-to-r from-cyan-500 to-blue-600 text-white font-medium text-center">Sign Up Free</Link>
+                  <Link href="/login" className="block w-full py-3 rounded-full border border-cyan-500/40 text-white text-center hover:border-cyan-400 hover:bg-cyan-500/10 transition-all duration-200">Log In</Link>
+                  <Link href="/register" className="block w-full py-3 rounded-full bg-gradient-to-r from-cyan-500 to-blue-600 text-white font-medium text-center hover:brightness-110 transition-all duration-200">Sign Up Free</Link>
                 </div>
               </div>
             </motion.div>
@@ -212,59 +184,26 @@ export default function LandingPage() {
             </motion.div>
 
             <h1 className="text-5xl md:text-7xl lg:text-8xl font-bold mb-6 leading-tight font-headline">
-              <AnimatedWord
-                text="Study Smarter"
-                className="bg-gradient-to-r from-cyan-400 via-blue-400 to-purple-500 bg-clip-text text-transparent block"
-                startDelay={0}
-              />
-              <AnimatedWord
-                text="Not Harder"
-                className="text-white block"
-                startDelay={15}
-              />
+              <span className="bg-gradient-to-r from-cyan-400 via-blue-500 to-purple-600 bg-clip-text text-transparent">Study Smarter</span>
+              <br />
+              <span className="text-white">Not Harder</span>
             </h1>
 
-            {/* animated glow line under heading */}
-            <motion.div
-              className="mx-auto mb-8 h-1 rounded-full bg-gradient-to-r from-cyan-500 via-blue-500 to-purple-500"
-              initial={{ width: 0, opacity: 0 }}
-              animate={{ width: "60%", opacity: 1 }}
-              transition={{ delay: 1.8, duration: 1, ease: "easeOut" }}
-            />
-
-            <motion.p
-              className="text-xl md:text-2xl text-gray-400 mb-10 max-w-2xl mx-auto leading-relaxed"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 2.2, duration: 0.7 }}
-            >
+            <p className="text-xl md:text-2xl text-gray-400 mb-10 max-w-2xl mx-auto leading-relaxed">
               AthenaAI — your all-in-one AI study companion. 12+ powerful features to boost your academic performance.
-            </motion.p>
+            </p>
 
-            <motion.div
-              className="flex flex-col sm:flex-row items-center justify-center gap-4"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 2.6, duration: 0.7 }}
-            >
-              <motion.div whileHover={{ scale: 1.05, boxShadow: "0 0 40px rgba(6,182,212,0.4)" }} whileTap={{ scale: 0.95 }}>
-                <Link href="/register" className="px-8 py-4 rounded-full bg-gradient-to-r from-cyan-500 to-blue-600 text-white font-bold text-lg shadow-lg shadow-cyan-500/30 inline-flex items-center gap-2">
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+              <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                <Link href="/register" className="px-8 py-4 rounded-full bg-gradient-to-r from-cyan-500 to-blue-600 text-white font-bold text-lg shadow-lg shadow-cyan-500/30 hover:shadow-cyan-500/60 hover:brightness-110 transition-all duration-200 inline-flex items-center gap-2">
                   Get Started Free <ChevronRight className="w-5 h-5" />
                 </Link>
               </motion.div>
               <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                <Link href="/login" className="px-8 py-4 rounded-full border border-white/20 text-white font-medium text-lg backdrop-blur-sm hover:bg-white/5 transition-all inline-flex items-center gap-2">
+                <Link href="/login" className="px-8 py-4 rounded-full border border-cyan-500/40 text-white font-medium text-lg hover:border-cyan-400 hover:bg-cyan-500/10 hover:text-cyan-300 transition-all duration-200 inline-flex items-center gap-2">
                   Log In
                 </Link>
               </motion.div>
-            </motion.div>
-          </motion.div>
-
-          <motion.div className="absolute bottom-10 left-1/2 -translate-x-1/2"
-            animate={{ y: [0, 10, 0] }} transition={{ repeat: Infinity, duration: 2 }}>
-            <div className="w-6 h-10 rounded-full border-2 border-white/30 flex items-start justify-center p-2">
-              <motion.div className="w-1.5 h-1.5 rounded-full bg-cyan-400"
-                animate={{ y: [0, 12, 0] }} transition={{ repeat: Infinity, duration: 2 }} />
             </div>
           </motion.div>
         </div>
@@ -325,11 +264,11 @@ export default function LandingPage() {
             </h2>
             <p className="text-xl text-gray-400 mb-10 max-w-2xl mx-auto">Join students already studying smarter with AthenaAI. Start for free today.</p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-              <motion.div whileHover={{ scale: 1.05, boxShadow: "0 0 60px rgba(6,182,212,0.5)" }} whileTap={{ scale: 0.95 }}>
-                <Link href="/register" className="px-10 py-5 rounded-full bg-gradient-to-r from-cyan-500 to-blue-600 text-white font-bold text-xl shadow-xl shadow-cyan-500/30 inline-block">Start Free</Link>
+              <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                <Link href="/register" className="px-10 py-5 rounded-full bg-gradient-to-r from-cyan-500 to-blue-600 text-white font-bold text-xl shadow-xl shadow-cyan-500/30 hover:shadow-cyan-500/60 hover:brightness-110 transition-all duration-200 inline-block">Start Free</Link>
               </motion.div>
               <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                <Link href="/login" className="px-10 py-5 rounded-full border border-white/20 text-white font-medium text-xl hover:bg-white/5 transition-all inline-block">Log In</Link>
+                <Link href="/login" className="px-10 py-5 rounded-full border border-cyan-500/40 text-white font-medium text-xl hover:border-cyan-400 hover:bg-cyan-500/10 hover:text-cyan-300 transition-all duration-200 inline-block">Log In</Link>
               </motion.div>
             </div>
             <div className="mt-8 flex flex-wrap items-center justify-center gap-6 text-sm text-gray-500">

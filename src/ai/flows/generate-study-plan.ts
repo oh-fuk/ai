@@ -11,7 +11,7 @@
  */
 
 import { ai } from '@/ai/genkit';
-import { z } from 'zod';
+import { z } from 'genkit';
 
 const GenerateStudyPlanInputSchema = z.object({
   topic: z.string().optional().describe('The main topic or subject for the study plan.'),

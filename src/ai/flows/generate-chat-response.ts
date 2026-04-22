@@ -9,7 +9,7 @@
  */
 
 import { ai } from '@/ai/genkit';
-import { z } from 'zod';
+import { z } from 'genkit';
 import { getTodayStudyTask } from '@/ai/tools/get-study-plan-task';
 
 // Define the structure for a single message in the chat history

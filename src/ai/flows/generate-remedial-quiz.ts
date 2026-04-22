@@ -10,7 +10,7 @@
  */
 
 import { ai } from '@/ai/genkit';
-import { z } from 'zod';
+import { z } from 'genkit';
 
 const GenerateRemedialQuizInputSchema = z.object({
   quizHistory: z.string().describe("A JSON string representing the user's quiz attempt history. Each item should include quizName, subject, score, and percentage."),

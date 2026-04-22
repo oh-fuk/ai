@@ -9,7 +9,7 @@
  */
 
 import { ai } from '@/ai/genkit';
-import { z } from 'zod';
+import { z } from 'genkit';
 
 const GenerateEmailInputSchema = z.object({
   topic: z.string().describe('The purpose or topic of the email (e.g., "Job application follow-up").'),

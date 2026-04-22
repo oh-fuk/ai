@@ -9,7 +9,7 @@
  */
 
 import { ai } from '@/ai/genkit';
-import { z } from 'zod';
+import { z } from 'genkit';
 
 const GenerateApplicationInputSchema = z.object({
   topic: z.string().describe('The purpose of the application (e.g., "Leave of absence," "Scholarship application").'),

@@ -9,7 +9,7 @@
  */
 
 import { ai } from '@/ai/genkit';
-import { z } from 'zod';
+import { z } from 'genkit';
 
 const GenerateChatTitleInputSchema = z.object({
   prompt: z.string().describe("The user's first message in a new conversation."),

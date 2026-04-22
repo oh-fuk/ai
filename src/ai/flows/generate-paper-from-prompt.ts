@@ -10,7 +10,7 @@
  */
 
 import { ai } from '@/ai/genkit';
-import { z } from 'zod';
+import { z } from 'genkit';
 import { analyzeBook } from './analyze-book';
 
 const GeneratePaperInputSchema = z.object({

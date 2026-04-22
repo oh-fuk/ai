@@ -9,7 +9,7 @@
  */
 
 import { ai } from '@/ai/genkit';
-import { z } from 'zod';
+import { z } from 'genkit';
 
 const GenerateEssayInputSchema = z.object({
   topic: z.string().describe('The topic for the essay.'),
