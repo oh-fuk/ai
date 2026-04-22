@@ -10,6 +10,7 @@ import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import { toPng } from 'html-to-image';
 import { embedWebFonts } from '@/lib/utils';
+import { ChartToolbar } from '@/components/app/chart-toolbar';
 import PageHeader from '@/components/app/page-header';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
