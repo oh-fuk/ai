@@ -39,6 +39,8 @@
     "@radix-ui/react-toast": "^1.2.6",
     "@radix-ui/react-tooltip": "^1.1.8",
     "adm-zip": "^0.5.14",
+    "@react-three/drei": "^9.92.0",
+    "@react-three/fiber": "^8.15.0",
     "canvas-confetti": "^1.9.4",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
@@ -65,7 +67,8 @@
     "tailwind-merge": "^3.0.1",
     "tailwindcss-animate": "^1.0.7",
     "wav": "^1.0.2",
-    "zod": "^3.24.2"
+    "zod": "^3.24.2",
+    "three": "^0.160.0"
   },
   "devDependencies": {
     "@types/adm-zip": "^0.5.5",
@@ -75,6 +78,7 @@
     "@types/node": "^20",
     "@types/react": "^18",
     "@types/react-dom": "^18",
+    "@types/three": "^0.160.0",
     "@types/wav": "^1.0.3",
     "genkit-cli": "^1.20.0",
     "postcss": "^8",

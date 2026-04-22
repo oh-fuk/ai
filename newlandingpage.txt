@@ -1,0 +1,714 @@
+1. app/page.tsx (Main Landing Page)
+tsx
+Copy
+"use client";
+
+import { Suspense, useState, useEffect, useRef } from "react";
+import { Canvas, useFrame } from "@react-three/fiber";
+import { OrbitControls, Stars, Float, Text3D, Center, Environment, MeshDistortMaterial } from "@react-three/drei";
+import { motion, AnimatePresence } from "framer-motion";
+import { 
+  Waves, BookOpen, Brain, FileText, Dices, Clock, 
+  Music, Moon, Sun, Mic, Calculator, Map, Globe, 
+  Lock, Database, Bell, BarChart3, Youtube, PenTool,
+  Calendar, Mail, Sheet, HardDrive, CheckCircle,
+  ChevronRight, Play, Pause, Volume2, X, Menu,
+  Sparkles, Zap, Shield, Infinity
+} from "lucide-react";
+import * as THREE from "three";
+
+// 🎵 Audio Component
+function BackgroundMusic() {
+  const [isPlaying, setIsPlaying] = useState(false);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  useEffect(() => {
+    audioRef.current = new Audio("https://cdn.pixabay.com/download/audio/2022/05/27/audio_1808fbf07a.mp3?filename=ocean-waves-112906.mp3");
+    audioRef.current.loop = true;
+    audioRef.current.volume = 0.3;
+  }, []);
+
+  const toggleMusic = () => {
+    if (audioRef.current) {
+      if (isPlaying) {
+        audioRef.current.pause();
+      } else {
+        audioRef.current.play();
+      }
+      setIsPlaying(!isPlaying);
+    }
+  };
+
+  return (
+    <motion.button
+      whileHover={{ scale: 1.1 }}
+      whileTap={{ scale: 0.9 }}
+      onClick={toggleMusic}
+      className="fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full bg-gradient-to-r from-cyan-500 to-blue-600 
+                 shadow-lg shadow-cyan-500/30 flex items-center justify-center text-white backdrop-blur-md
+                 border border-white/20"
+    >
+      {isPlaying ? <Volume2 className="w-6 h-6 animate-pulse" /> : <Play className="w-6 h-6" />}
+    </motion.button>
+  );
+}
+
+// 🌊 3D Ocean Wave Component
+function Ocean() {
+  const meshRef = useRef<THREE.Mesh>(null);
+  const materialRef = useRef<THREE.ShaderMaterial>(null);
+
+  const vertexShader = `
+    uniform float uTime;
+    varying vec2 vUv;
+    varying float vElevation;
+    
+    void main() {
+      vUv = uv;
+      vec3 pos = position;
+      
+      float elevation = sin(pos.x * 2.0 + uTime) * 0.2;
+      elevation += sin(pos.y * 3.0 + uTime * 0.8) * 0.2;
+      elevation += sin((pos.x + pos.y) * 1.5 + uTime * 1.2) * 0.1;
+      
+      pos.z += elevation;
+      vElevation = elevation;
+      
+      gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0);
+    }
+  `;
+
+  const fragmentShader = `
+    uniform float uTime;
+    varying vec2 vUv;
+    varying float vElevation;
+    
+    void main() {
+      vec3 deepColor = vec3(0.0, 0.2, 0.4);
+      vec3 surfaceColor = vec3(0.0, 0.6, 0.8);
+      vec3 foamColor = vec3(0.8, 0.9, 1.0);
+      
+      float mixStrength = (vElevation + 0.5) * 0.8;
+      vec3 color = mix(deepColor, surfaceColor, mixStrength);
+      
+      if (vElevation > 0.35) {
+        color = mix(color, foamColor, (vElevation - 0.35) * 3.0);
+      }
+      
+      float alpha = 0.85;
+      gl_FragColor = vec4(color, alpha);
+    }
+  `;
+
+  useFrame((state) => {
+    if (materialRef.current) {
+      materialRef.current.uniforms.uTime.value = state.clock.elapsedTime;
+    }
+  });
+
+  return (
+    <mesh ref={meshRef} rotation={[-Math.PI / 2.5, 0, 0]} position={[0, -2, 0]}>
+      <planeGeometry args={[30, 30, 128, 128]} />
+      <shaderMaterial
+        ref={materialRef}
+        vertexShader={vertexShader}
+        fragmentShader={fragmentShader}
+        uniforms={{
+          uTime: { value: 0 },
+        }}
+        transparent
+        side={THREE.DoubleSide}
+      />
+    </mesh>
+  );
+}
+
+// 🐠 Floating Particles
+function FloatingParticles() {
+  const particlesRef = useRef<THREE.Points>(null);
+  
+  const particleCount = 200;
+  const positions = new Float32Array(particleCount * 3);
+  
+  for (let i = 0; i < particleCount; i++) {
+    positions[i * 3] = (Math.random() - 0.5) * 20;
+    positions[i * 3 + 1] = (Math.random() - 0.5) * 10;
+    positions[i * 3 + 2] = (Math.random() - 0.5) * 20;
+  }
+
+  useFrame((state) => {
+    if (particlesRef.current) {
+      particlesRef.current.rotation.y = state.clock.elapsedTime * 0.05;
+      particlesRef.current.rotation.x = Math.sin(state.clock.elapsedTime * 0.1) * 0.1;
+    }
+  });
+
+  return (
+    <points ref={particlesRef}>
+      <bufferGeometry>
+        <bufferAttribute
+          attach="attributes-position"
+          count={particleCount}
+          array={positions}
+          itemSize={3}
+        />
+      </bufferGeometry>
+      <pointsMaterial
+        size={0.05}
+        color="#00d4ff"
+        transparent
+        opacity={0.6}
+        sizeAttenuation
+      />
+    </points>
+  );
+}
+
+// 🌟 Animated 3D Text
+function AnimatedTitle() {
+  return (
+    <Float speed={2} rotationIntensity={0.3} floatIntensity={0.5}>
+      <Center position={[0, 1.5, 0]}>
+        <Text3D
+          font="/fonts/helvetiker_bold.typeface.json"
+          size={0.8}
+          height={0.2}
+          curveSegments={12}
+        >
+          STUDY AI
+          <meshStandardMaterial
+            color="#00d4ff"
+            emissive="#0044aa"
+            emissiveIntensity={0.5}
+            metalness={0.8}
+            roughness={0.2}
+          />
+        </Text3D>
+      </Center>
+    </Float>
+  );
+}
+
+// 🎯 Feature Card Component
+function FeatureCard({ icon: Icon, title, description, delay, color }: any) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 50 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true }}
+      transition={{ duration: 0.6, delay }}
+      whileHover={{ y: -10, scale: 1.02 }}
+      className="relative group"
+    >
+      <div className={`absolute inset-0 bg-gradient-to-r ${color} rounded-2xl blur-xl opacity-20 group-hover:opacity-40 transition-opacity duration-500`} />
+      <div className="relative bg-white/5 backdrop-blur-lg border border-white/10 rounded-2xl p-6 h-full
+                      hover:border-white/30 transition-all duration-300 overflow-hidden">
+        <div className={`w-12 h-12 rounded-xl bg-gradient-to-r ${color} flex items-center justify-center mb-4`}>
+          <Icon className="w-6 h-6 text-white" />
+        </div>
+        <h3 className="text-xl font-bold text-white mb-2">{title}</h3>
+        <p className="text-gray-400 text-sm leading-relaxed">{description}</p>
+        
+        <motion.div
+          className="absolute bottom-0 left-0 h-1 bg-gradient-to-r from-transparent via-white/50 to-transparent"
+          initial={{ width: "0%" }}
+          whileHover={{ width: "100%" }}
+          transition={{ duration: 0.5 }}
+        />
+      </div>
+    </motion.div>
+  );
+}
+
+// 🎨 Main Page Component
+export default function LandingPage() {
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
+
+  useEffect(() => {
+    const handleScroll = () => setScrolled(window.scrollY > 50);
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
+
+  const features = [
+    { icon: Brain, title: "AI Doubt Solver", description: "Instant AI-powered answers to all your study questions 24/7", color: "from-purple-500 to-pink-500" },
+    { icon: FileText, title: "PDF Chat", description: "Upload PDFs and chat with them to extract key information", color: "from-blue-500 to-cyan-500" },
+    { icon: Dices, title: "Quiz Generator", description: "Auto-generate quizzes from your study material with AI", color: "from-green-500 to-emerald-500" },
+    { icon: Clock, title: "Pomodoro Timer", description: "Stay focused with customizable Pomodoro study sessions", color: "from-orange-500 to-red-500" },
+    { icon: Music, title: "Study Music", description: "Curated lo-fi and ambient music for deep focus", color: "from-pink-500 to-rose-500" },
+    { icon: Mic, title: "Voice Input", description: "Speak your questions and get instant AI responses", color: "from-indigo-500 to-purple-500" },
+    { icon: Calculator, title: "AI Calculator", description: "Smart calculator with step-by-step explanations", color: "from-yellow-500 to-orange-500" },
+    { icon: Map, title: "Mind Maps", description: "Visualize concepts with auto-generated mind maps", color: "from-teal-500 to-cyan-500" },
+    { icon: BarChart3, title: "Analytics", description: "Track your study progress with detailed insights", color: "from-blue-600 to-indigo-600" },
+    { icon: Youtube, title: "YouTube Embed", description: "Integrate educational videos directly in your workspace", color: "from-red-500 to-pink-500" },
+    { icon: PenTool, title: "Writing Assistant", description: "AI helps with essays, emails, letters & applications", color: "from-violet-500 to-purple-500" },
+    { icon: Calendar, title: "Study Planner", description: "AI-generated personalized study schedules", color: "from-emerald-500 to-green-500" },
+  ];
+
+  const stats = [
+    { icon: Users, value: "50K+", label: "Active Students" },
+    { icon: BookOpen, value: "1M+", label: "Questions Solved" },
+    { icon: Zap, value: "99.9%", label: "Uptime" },
+    { icon: Globe, value: "150+", label: "Countries" },
+  ];
+
+  return (
+    <div className="min-h-screen bg-[#0a0a1a] text-white overflow-x-hidden">
+      {/* 🧭 Navigation */}
+      <motion.nav
+        className={`fixed top-0 w-full z-40 transition-all duration-300 ${
+          scrolled ? "bg-black/50 backdrop-blur-xl border-b border-white/10" : "bg-transparent"
+        }`}
+      >
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-20">
+            <motion.div 
+              className="flex items-center gap-2"
+              whileHover={{ scale: 1.05 }}
+            >
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-r from-cyan-400 to-blue-600 flex items-center justify-center">
+                <Sparkles className="w-6 h-6 text-white" />
+              </div>
+              <span className="text-2xl font-bold bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent">
+                StudyAI
+              </span>
+            </motion.div>
+
+            <div className="hidden md:flex items-center gap-8">
+              {["Features", "How it Works", "Pricing", "About"].map((item) => (
+                <motion.a
+                  key={item}
+                  href={`#${item.toLowerCase().replace(" ", "-")}`}
+                  className="text-gray-300 hover:text-white transition-colors relative group"
+                  whileHover={{ y: -2 }}
+                >
+                  {item}
+                  <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-cyan-400 group-hover:w-full transition-all duration-300" />
+                </motion.a>
+              ))}
+            </div>
+
+            <div className="hidden md:flex items-center gap-4">
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                className="px-6 py-2.5 rounded-full border border-white/20 text-white hover:bg-white/10 transition-all"
+              >
+                Log In
+              </motion.button>
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                className="px-6 py-2.5 rounded-full bg-gradient-to-r from-cyan-500 to-blue-600 text-white font-medium
+                           shadow-lg shadow-cyan-500/25 hover:shadow-cyan-500/40 transition-all"
+              >
+                Sign Up Free
+              </motion.button>
+            </div>
+
+            <button 
+              className="md:hidden text-white"
+              onClick={() => setIsMenuOpen(!isMenuOpen)}
+            >
+              {isMenuOpen ? <X /> : <Menu />}
+            </button>
+          </div>
+        </div>
+
+        <AnimatePresence>
+          {isMenuOpen && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: "auto" }}
+              exit={{ opacity: 0, height: 0 }}
+              className="md:hidden bg-black/90 backdrop-blur-xl border-b border-white/10"
+            >
+              <div className="px-4 py-6 space-y-4">
+                {["Features", "How it Works", "Pricing", "About"].map((item) => (
+                  <a key={item} href="#" className="block text-gray-300 hover:text-white py-2">{item}</a>
+                ))}
+                <div className="pt-4 space-y-3">
+                  <button className="w-full py-3 rounded-full border border-white/20 text-white">Log In</button>
+                  <button className="w-full py-3 rounded-full bg-gradient-to-r from-cyan-500 to-blue-600 text-white font-medium">
+                    Sign Up Free
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </motion.nav>
+
+      {/* 🌊 Hero Section with 3D */}
+      <section className="relative h-screen flex items-center justify-center overflow-hidden">
+        {/* 3D Canvas Background */}
+        <div className="absolute inset-0 z-0">
+          <Canvas camera={{ position: [0, 2, 8], fov: 60 }}>
+            <Suspense fallback={null}>
+              <ambientLight intensity={0.5} />
+              <pointLight position={[10, 10, 10]} intensity={1} color="#00d4ff" />
+              <pointLight position={[-10, -10, -10]} intensity={0.5} color="#0066ff" />
+              
+              <Ocean />
+              <FloatingParticles />
+              <Stars radius={100} depth={50} count={5000} factor={4} saturation={0} fade speed={1} />
+              
+              <Environment preset="night" />
+            </Suspense>
+          </Canvas>
+        </div>
+
+        {/* Hero Content */}
+        <div className="relative z-10 text-center px-4 max-w-5xl mx-auto">
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 1 }}
+          >
+            <motion.div
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/5 border border-white/10 backdrop-blur-sm mb-8"
+              initial={{ scale: 0 }}
+              animate={{ scale: 1 }}
+              transition={{ delay: 0.5, type: "spring" }}
+            >
+              <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
+              <span className="text-sm text-gray-300">Powered by Advanced AI</span>
+            </motion.div>
+
+            <h1 className="text-5xl md:text-7xl lg:text-8xl font-bold mb-6 leading-tight">
+              <span className="bg-gradient-to-r from-cyan-400 via-blue-500 to-purple-600 bg-clip-text text-transparent">
+                Study Smarter
+              </span>
+              <br />
+              <span className="text-white">Not Harder</span>
+            </h1>
+
+            <p className="text-xl md:text-2xl text-gray-400 mb-10 max-w-2xl mx-auto leading-relaxed">
+              Your all-in-one AI study companion. 36+ powerful features to boost your academic performance.
+            </p>
+
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+              <motion.button
+                whileHover={{ scale: 1.05, boxShadow: "0 0 40px rgba(6, 182, 212, 0.4)" }}
+                whileTap={{ scale: 0.95 }}
+                className="px-8 py-4 rounded-full bg-gradient-to-r from-cyan-500 to-blue-600 text-white font-bold text-lg
+                           shadow-lg shadow-cyan-500/30 flex items-center gap-2"
+              >
+                Get Started Free
+                <ChevronRight className="w-5 h-5" />
+              </motion.button>
+              
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                className="px-8 py-4 rounded-full border border-white/20 text-white font-medium text-lg
+                           backdrop-blur-sm hover:bg-white/5 transition-all flex items-center gap-2"
+              >
+                <Play className="w-5 h-5" />
+                Watch Demo
+              </motion.button>
+            </div>
+          </motion.div>
+
+          {/* Scroll Indicator */}
+          <motion.div
+            className="absolute bottom-10 left-1/2 -translate-x-1/2"
+            animate={{ y: [0, 10, 0] }}
+            transition={{ repeat: Infinity, duration: 2 }}
+          >
+            <div className="w-6 h-10 rounded-full border-2 border-white/30 flex items-start justify-center p-2">
+              <motion.div 
+                className="w-1.5 h-1.5 rounded-full bg-cyan-400"
+                animate={{ y: [0, 12, 0] }}
+                transition={{ repeat: Infinity, duration: 2 }}
+              />
+            </div>
+          </motion.div>
+        </div>
+      </section>
+
+      {/* 📊 Stats Section */}
+      <section className="py-20 relative">
+        <div className="max-w-7xl mx-auto px-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
+            {stats.map((stat, i) => (
+              <motion.div
+                key={i}
+                initial={{ opacity: 0, scale: 0.5 }}
+                whileInView={{ opacity: 1, scale: 1 }}
+                viewport={{ once: true }}
+                transition={{ delay: i * 0.1 }}
+                className="text-center"
+              >
+                <div className="flex justify-center mb-4">
+                  <div className="w-16 h-16 rounded-2xl bg-gradient-to-r from-cyan-500/20 to-blue-500/20 
+                                  flex items-center justify-center border border-white/10">
+                    <stat.icon className="w-8 h-8 text-cyan-400" />
+                  </div>
+                </div>
+                <div className="text-3xl md:text-4xl font-bold text-white mb-1">{stat.value}</div>
+                <div className="text-gray-400">{stat.label}</div>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ✨ Features Grid */}
+      <section id="features" className="py-24 relative">
+        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-blue-900/10 to-transparent" />
+        
+        <div className="max-w-7xl mx-auto px-4 relative z-10">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            className="text-center mb-16"
+          >
+            <h2 className="text-4xl md:text-5xl font-bold mb-4">
+              <span className="bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent">
+                36+ Powerful Features
+              </span>
+            </h2>
+            <p className="text-gray-400 text-lg max-w-2xl mx-auto">
+              Everything you need to excel in your studies, powered by cutting-edge AI technology
+            </p>
+          </motion.div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            {features.map((feature, i) => (
+              <FeatureCard key={i} {...feature} delay={i * 0.05} />
+            ))}
+          </div>
+
+          {/* More Features Indicator */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            whileInView={{ opacity: 1 }}
+            viewport={{ once: true }}
+            className="text-center mt-12"
+          >
+            <div className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-white/5 border border-white/10">
+              <Infinity className="w-5 h-5 text-cyan-400" />
+              <span className="text-gray-300">And 24 more features...</span>
+            </div>
+          </motion.div>
+        </div>
+      </section>
+
+      {/* 🎯 CTA Section */}
+      <section className="py-24 relative overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-r from-cyan-900/20 to-blue-900/20" />
+        <div className="absolute top-0 left-0 w-full h-px bg-gradient-to-r from-transparent via-cyan-500/50 to-transparent" />
+        <div className="absolute bottom-0 left-0 w-full h-px bg-gradient-to-r from-transparent via-blue-500/50 to-transparent" />
+        
+        <div className="max-w-4xl mx-auto px-4 text-center relative z-10">
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+          >
+            <h2 className="text-4xl md:text-6xl font-bold mb-6">
+              Ready to Transform Your
+              <span className="block bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent">
+                Study Experience?
+              </span>
+            </h2>
+            <p className="text-xl text-gray-400 mb-10 max-w-2xl mx-auto">
+              Join 50,000+ students who are already studying smarter with AI. 
+              Start for free today — no credit card required.
+            </p>
+            
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+              <motion.button
+                whileHover={{ scale: 1.05, boxShadow: "0 0 60px rgba(6, 182, 212, 0.5)" }}
+                whileTap={{ scale: 0.95 }}
+                className="px-10 py-5 rounded-full bg-gradient-to-r from-cyan-500 to-blue-600 text-white font-bold text-xl
+                           shadow-xl shadow-cyan-500/30"
+              >
+                Start Free Trial
+              </motion.button>
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                className="px-10 py-5 rounded-full border border-white/20 text-white font-medium text-xl
+                           hover:bg-white/5 transition-all"
+              >
+                View Pricing
+              </motion.button>
+            </div>
+
+            <div className="mt-8 flex items-center justify-center gap-6 text-sm text-gray-500">
+              <span className="flex items-center gap-2">
+                <CheckCircle className="w-4 h-4 text-green-400" /> No credit card
+              </span>
+              <span className="flex items-center gap-2">
+                <CheckCircle className="w-4 h-4 text-green-400" /> Free forever plan
+              </span>
+              <span className="flex items-center gap-2">
+                <CheckCircle className="w-4 h-4 text-green-400" /> Cancel anytime
+              </span>
+            </div>
+          </motion.div>
+        </div>
+      </section>
+
+      {/* 🦶 Footer */}
+      <footer className="py-12 border-t border-white/10 bg-black/30">
+        <div className="max-w-7xl mx-auto px-4">
+          <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-lg bg-gradient-to-r from-cyan-400 to-blue-600 flex items-center justify-center">
+                <Sparkles className="w-5 h-5 text-white" />
+              </div>
+              <span className="text-xl font-bold text-white">StudyAI</span>
+            </div>
+            
+            <div className="flex items-center gap-8 text-gray-400">
+              <a href="#" className="hover:text-white transition-colors">Privacy</a>
+              <a href="#" className="hover:text-white transition-colors">Terms</a>
+              <a href="#" className="hover:text-white transition-colors">Contact</a>
+            </div>
+            
+            <div className="text-gray-500 text-sm">
+              © 2026 StudyAI. All rights reserved.
+            </div>
+          </div>
+        </div>
+      </footer>
+
+      {/* 🎵 Background Music Button */}
+      <BackgroundMusic />
+    </div>
+  );
+}
+
+// Missing import fix
+import { Users } from "lucide-react";
+2. app/layout.tsx
+tsx
+Copy
+import type { Metadata } from "next";
+import { Inter } from "next/font/google";
+import "./globals.css";
+
+const inter = Inter({ subsets: ["latin"] });
+
+export const metadata: Metadata = {
+  title: "StudyAI - Your AI Study Companion",
+  description: "36+ AI-powered features to boost your academic performance. Study smarter, not harder.",
+};
+
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return (
+    <html lang="en" className="dark">
+      <body className={`${inter.className} bg-[#0a0a1a] text-white antialiased`}>
+        {children}
+      </body>
+    </html>
+  );
+}
+3. app/globals.css
+css
+Copy
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+  
+  body {
+    background-color: #0a0a1a;
+    color: white;
+    overflow-x: hidden;
+  }
+
+  ::selection {
+    background-color: rgba(6, 182, 212, 0.3);
+    color: white;
+  }
+}
+
+@layer utilities {
+  .text-gradient {
+    @apply bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 to-blue-500;
+  }
+  
+  .glass {
+    @apply bg-white/5 backdrop-blur-lg border border-white/10;
+  }
+  
+  .glow-cyan {
+    box-shadow: 0 0 40px rgba(6, 182, 212, 0.3);
+  }
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #0a0a1a;
+}
+
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(to bottom, #06b6d4, #3b82f6);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(to bottom, #22d3ee, #60a5fa);
+}
+
+/* Animation keyframes */
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-20px); }
+}
+
+@keyframes pulse-glow {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 1; }
+}
+4. package.json Dependencies
+JSON
+Copy
+{
+  "dependencies": {
+    "next": "latest",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "three": "^0.160.0",
+    "@react-three/fiber": "^8.15.0",
+    "@react-three/drei": "^9.92.0",
+    "framer-motion": "^10.16.0",
+    "lucide-react": "^0.300.0",
+    "tailwindcss": "^3.4.0",
+    "typescript": "^5.3.0",
+    "@types/three": "^0.160.0",
+    "@types/node": "^20.0.0",
+    "@types/react": "^18.2.0",
+    "@types/react-dom": "^18.2.0"
+  }
+}
+5. next.config.js
+JavaScript
+Copy
+/** @type {import('next').NextConfig} */
+const nextConfig = {
+  reactStrictMode: true,
+  images: {
+    domains: ['cdn.pixabay.com'],
+  },
+}
+
+module.exports = nextConfig
