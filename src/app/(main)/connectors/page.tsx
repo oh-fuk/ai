@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useUser, useFirestore, useMemoFirebase, useDoc } from '@/firebase';
-import { doc, setDoc, updateDoc } from 'firebase/firestore';
+import { doc, updateDoc } from 'firebase/firestore';
 import PageHeader from '@/components/app/page-header';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -10,22 +10,20 @@ import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import {
     HardDrive, CheckCircle2, XCircle, Loader, ExternalLink,
-    FolderOpen, Upload, RefreshCw, Unplug,
+    FolderOpen, Upload, Unplug,
 } from 'lucide-react';
 
 const GOOGLE_CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || '';
 const GOOGLE_PICKER_API_KEY = process.env.NEXT_PUBLIC_GOOGLE_PICKER_API_KEY || '';
-const SCOPES = 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/drive.readonly';
+const SCOPES = [
+    'https://www.googleapis.com/auth/drive.file',
+    'https://www.googleapis.com/auth/drive.readonly',
+].join(' ');
 
 declare global {
-    interface Window {
-        google: any;
-        gapi: any;
-        tokenClient: any;
-    }
+    interface Window { google: any; gapi: any; }
 }
 
-/* ─── Load Google scripts ───────────────────────────────────────────────── */
 function loadScript(src: string): Promise<void> {
     return new Promise((resolve, reject) => {
         if (document.querySelector(`script[src="${src}"]`)) { resolve(); return; }
@@ -37,27 +35,14 @@ function loadScript(src: string): Promise<void> {
     });
 }
 
-/* ─── Connector card component ──────────────────────────────────────────── */
+/* ─── Connector card ────────────────────────────────────────────────────── */
 function ConnectorCard({
-    icon,
-    name,
-    description,
-    connected,
-    connecting,
-    email,
-    onConnect,
-    onDisconnect,
-    comingSoon,
+    icon, name, description, connected, connecting, email,
+    onConnect, onDisconnect, comingSoon,
 }: {
-    icon: React.ReactNode;
-    name: string;
-    description: string;
-    connected: boolean;
-    connecting?: boolean;
-    email?: string;
-    onConnect?: () => void;
-    onDisconnect?: () => void;
-    comingSoon?: boolean;
+    icon: React.ReactNode; name: string; description: string;
+    connected: boolean; connecting?: boolean; email?: string;
+    onConnect?: () => void; onDisconnect?: () => void; comingSoon?: boolean;
 }) {
     return (
         <Card className={connected ? 'border-green-500/40 bg-green-500/5' : ''}>
@@ -75,8 +60,7 @@ function ConnectorCard({
                 </div>
                 {connected
                     ? <CheckCircle2 className="h-5 w-5 text-green-500 flex-shrink-0 mt-0.5" />
-                    : <XCircle className="h-5 w-5 text-muted-foreground/40 flex-shrink-0 mt-0.5" />
-                }
+                    : <XCircle className="h-5 w-5 text-muted-foreground/40 flex-shrink-0 mt-0.5" />}
             </CardHeader>
             <CardContent className="pt-0 flex items-center justify-between gap-4">
                 <p className="text-xs text-muted-foreground">
@@ -110,6 +94,7 @@ export default function ConnectorsPage() {
     const [driveEmail, setDriveEmail] = useState('');
     const [accessToken, setAccessToken] = useState('');
     const [scriptsLoaded, setScriptsLoaded] = useState(false);
+    const [pickerLoaded, setPickerLoaded] = useState(false);
 
     const userDocRef = useMemoFirebase(
         () => (user ? doc(firestore, 'users', user.uid) : null),
@@ -117,7 +102,7 @@ export default function ConnectorsPage() {
     );
     const { data: userProfile } = useDoc(userDocRef);
 
-    // Load saved connection from Firestore
+    // Restore saved connection
     useEffect(() => {
         if (userProfile?.googleDrive?.connected) {
             setDriveConnected(true);
@@ -126,29 +111,24 @@ export default function ConnectorsPage() {
         }
     }, [userProfile]);
 
-    // Load Google scripts
+    // Load Google Identity + GAPI scripts
     useEffect(() => {
         Promise.all([
             loadScript('https://accounts.google.com/gsi/client'),
             loadScript('https://apis.google.com/js/api.js'),
-        ]).then(() => setScriptsLoaded(true))
-            .catch(() => toast({ variant: 'destructive', title: 'Failed to load Google scripts' }));
+        ]).then(() => {
+            setScriptsLoaded(true);
+            // Load picker after gapi is ready
+            window.gapi.load('picker', () => setPickerLoaded(true));
+        }).catch(() => toast({ variant: 'destructive', title: 'Failed to load Google scripts' }));
     }, []);
 
+    /* ── Connect ── */
     const handleConnectDrive = useCallback(async () => {
         if (!scriptsLoaded) {
-            toast({ variant: 'destructive', title: 'Google scripts not loaded yet. Please wait.' });
+            toast({ variant: 'destructive', title: 'Scripts not ready, please wait a moment.' });
             return;
         }
-        if (!GOOGLE_CLIENT_ID || GOOGLE_CLIENT_ID === 'YOUR_GOOGLE_CLIENT_ID') {
-            toast({
-                variant: 'destructive',
-                title: 'Google Client ID not configured',
-                description: 'Add NEXT_PUBLIC_GOOGLE_CLIENT_ID to your .env.local file.',
-            });
-            return;
-        }
-
         setDriveConnecting(true);
         try {
             await new Promise<void>((resolve, reject) => {
@@ -157,28 +137,30 @@ export default function ConnectorsPage() {
                     scope: SCOPES,
                     callback: async (response: any) => {
                         if (response.error) { reject(new Error(response.error)); return; }
-
                         const token = response.access_token;
                         setAccessToken(token);
 
-                        // Get user email from Google
+                        // Get email
                         const res = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
                             headers: { Authorization: `Bearer ${token}` },
                         });
                         const info = await res.json();
                         const email = info.email || '';
-
                         setDriveConnected(true);
                         setDriveEmail(email);
 
-                        // Save to Firestore
-                        if (user && userDocRef) {
+                        // Persist to Firestore
+                        if (userDocRef) {
                             await updateDoc(userDocRef as any, {
-                                googleDrive: { connected: true, email, accessToken: token, connectedAt: new Date().toISOString() },
+                                googleDrive: {
+                                    connected: true,
+                                    email,
+                                    accessToken: token,
+                                    connectedAt: new Date().toISOString(),
+                                },
                             });
                         }
-
-                        toast({ title: 'Google Drive Connected!', description: `Signed in as ${email}` });
+                        toast({ title: '✅ Google Drive Connected!', description: `Signed in as ${email}` });
                         resolve();
                     },
                 });
@@ -189,23 +171,41 @@ export default function ConnectorsPage() {
         } finally {
             setDriveConnecting(false);
         }
-    }, [scriptsLoaded, user, userDocRef, toast]);
+    }, [scriptsLoaded, userDocRef, toast]);
 
+    /* ── Disconnect ── */
     const handleDisconnectDrive = async () => {
-        if (accessToken) {
-            window.google?.accounts.oauth2.revoke(accessToken, () => { });
-        }
+        if (accessToken) window.google?.accounts.oauth2.revoke(accessToken, () => { });
         setDriveConnected(false);
         setDriveEmail('');
         setAccessToken('');
-
-        if (user && userDocRef) {
+        if (userDocRef) {
             await updateDoc(userDocRef as any, {
                 googleDrive: { connected: false, email: '', accessToken: '', connectedAt: null },
             });
         }
         toast({ title: 'Google Drive Disconnected' });
     };
+
+    /* ── Open Picker (test) ── */
+    const handleOpenPicker = useCallback(() => {
+        if (!pickerLoaded || !accessToken) {
+            toast({ variant: 'destructive', title: 'Picker not ready or not connected.' });
+            return;
+        }
+        const picker = new window.google.picker.PickerBuilder()
+            .addView(window.google.picker.ViewId.DOCS)
+            .setOAuthToken(accessToken)
+            .setDeveloperKey(GOOGLE_PICKER_API_KEY)
+            .setCallback((data: any) => {
+                if (data.action === window.google.picker.Action.PICKED) {
+                    const file = data.docs[0];
+                    toast({ title: `Selected: ${file.name}`, description: `ID: ${file.id}` });
+                }
+            })
+            .build();
+        picker.setVisible(true);
+    }, [pickerLoaded, accessToken, toast]);
 
     return (
         <div className="flex flex-col gap-8 max-w-2xl">
@@ -214,7 +214,7 @@ export default function ConnectorsPage() {
                 description="Connect external tools and services to enhance your workflow."
             />
 
-            {/* Active connectors */}
+            {/* Available */}
             <div className="flex flex-col gap-4">
                 <h2 className="text-sm font-semibold text-foreground">Available</h2>
 
@@ -228,28 +228,35 @@ export default function ConnectorsPage() {
                     onConnect={handleConnectDrive}
                     onDisconnect={handleDisconnectDrive}
                 />
+
+                {/* Test picker button when connected */}
+                {driveConnected && (
+                    <Button variant="outline" size="sm" className="w-fit gap-2" onClick={handleOpenPicker}>
+                        <FolderOpen className="h-4 w-4" /> Browse Drive Files
+                    </Button>
+                )}
             </div>
 
-            {/* What you can do section */}
+            {/* What you can do */}
             {driveConnected && (
                 <Card className="border-blue-500/20 bg-blue-500/5">
                     <CardHeader className="pb-3">
                         <CardTitle className="text-sm flex items-center gap-2">
                             <CheckCircle2 className="h-4 w-4 text-green-500" />
-                            Google Drive is connected
+                            Google Drive is active
                         </CardTitle>
                         <CardDescription className="text-xs">
-                            You can now use these features across the app:
+                            These features are now available across the app:
                         </CardDescription>
                     </CardHeader>
                     <CardContent className="pt-0 grid grid-cols-1 sm:grid-cols-2 gap-2">
                         {[
-                            { icon: <FolderOpen className="h-3.5 w-3.5" />, text: 'Import PDFs from Drive into Quiz Generator' },
-                            { icon: <FolderOpen className="h-3.5 w-3.5" />, text: 'Import documents into Notes Maker' },
-                            { icon: <Upload className="h-3.5 w-3.5" />, text: 'Save generated Notes to Drive' },
-                            { icon: <Upload className="h-3.5 w-3.5" />, text: 'Save Essays, Emails & Letters to Drive' },
-                            { icon: <Upload className="h-3.5 w-3.5" />, text: 'Export Quiz Results PDF to Drive' },
-                            { icon: <Upload className="h-3.5 w-3.5" />, text: 'Export Progress Report to Drive' },
+                            { icon: <FolderOpen className="h-3.5 w-3.5" />, text: 'Import PDFs from Drive → Quiz Generator' },
+                            { icon: <FolderOpen className="h-3.5 w-3.5" />, text: 'Import documents → Notes Maker' },
+                            { icon: <FolderOpen className="h-3.5 w-3.5" />, text: 'Import files → Summarizer' },
+                            { icon: <Upload className="h-3.5 w-3.5" />, text: 'Save Notes to Google Drive' },
+                            { icon: <Upload className="h-3.5 w-3.5" />, text: 'Save Essays / Emails / Letters' },
+                            { icon: <Upload className="h-3.5 w-3.5" />, text: 'Export Progress Report PDF' },
                         ].map((f, i) => (
                             <div key={i} className="flex items-center gap-2 text-xs text-muted-foreground">
                                 <span className="text-blue-500">{f.icon}</span>
@@ -265,9 +272,9 @@ export default function ConnectorsPage() {
                 <h2 className="text-sm font-semibold text-foreground">Coming Soon</h2>
                 <div className="grid grid-cols-1 gap-3">
                     {[
+                        { name: 'Gmail', desc: 'Read and send emails directly from the Email Writer.' },
                         { name: 'Notion', desc: 'Sync notes and study plans with Notion pages.' },
                         { name: 'OneDrive', desc: 'Import and export files via Microsoft OneDrive.' },
-                        { name: 'Dropbox', desc: 'Access your Dropbox files directly in the app.' },
                     ].map(c => (
                         <ConnectorCard
                             key={c.name}

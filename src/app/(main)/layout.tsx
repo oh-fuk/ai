@@ -1,6 +1,6 @@
 'use client';
 import dynamic from 'next/dynamic';
-import { SidebarProvider, Sidebar, SidebarInset } from "@/components/ui/sidebar";
+import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
 import { useUser, useDoc, useFirestore, useMemoFirebase } from '@/firebase';
 import { doc } from 'firebase/firestore';
 import { useRouter } from 'next/navigation';
@@ -17,7 +17,7 @@ import { MusicPlayer } from '@/components/app/music-player';
 import { Button } from '@/components/ui/button';
 
 const AppSidebar = dynamic(() => import("@/app/(main)/app-sidebar"), {
-  loading: () => <div className="w-64 h-full bg-sidebar animate-pulse" />,
+  loading: () => <div className="w-[60px] h-full bg-sidebar animate-pulse" />,
   ssr: false
 });
 
@@ -62,7 +62,10 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const avatarUrl = userProfile?.avatarUrl;
   const fullName = userProfile?.fullName || 'Student';
   const userInitial = fullName?.charAt(0).toUpperCase() || 'S';
+
+  // Sidebar only shows on dashboard
   const isDashboard = pathname === '/dashboard';
+  const isChat = pathname === '/chat';
 
   return (
     <AuthGuard>
@@ -70,34 +73,33 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         <SidebarProvider defaultOpen={true}>
           <div className="flex h-screen w-full overflow-hidden bg-background">
 
-            {/* Sidebar — width animates between collapsed (icon-only) and expanded */}
-            <div
-              className={cn(
+            {/* ── Sidebar: only on dashboard ── */}
+            {isDashboard && (
+              <div className={cn(
                 "flex-shrink-0 h-full border-r border-sidebar-border transition-all duration-300 ease-in-out overflow-hidden",
                 collapsed ? "w-[60px]" : "w-[240px]"
-              )}
-            >
-              <AppSidebar collapsed={collapsed} />
-            </div>
+              )}>
+                <AppSidebar collapsed={collapsed} />
+              </div>
+            )}
 
-            {/* Main content */}
+            {/* ── Main content ── */}
             <SidebarInset className="flex flex-col flex-1 h-full overflow-hidden">
-              {/* Header — only on dashboard */}
+
+              {/* Dashboard header: sidebar toggle + theme + avatar */}
               {isDashboard && (
-                <header className="flex-shrink-0 sticky top-0 z-10 flex h-14 items-center justify-between gap-4 px-4 sm:h-16 sm:px-6 bg-transparent border-none transition-all duration-200">
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => setCollapsed(c => !c)}
-                      className="h-8 w-8 text-muted-foreground hover:text-foreground"
-                    >
-                      {collapsed
-                        ? <PanelLeftOpen className="h-4 w-4" />
-                        : <PanelLeftClose className="h-4 w-4" />
-                      }
-                    </Button>
-                  </div>
+                <header className="flex-shrink-0 sticky top-0 z-10 flex h-14 items-center justify-between gap-4 px-4 sm:h-16 sm:px-6 bg-transparent border-none">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setCollapsed(c => !c)}
+                    className="h-8 w-8 text-white/70 hover:text-white hover:bg-white/10"
+                  >
+                    {collapsed
+                      ? <PanelLeftOpen className="h-4 w-4" />
+                      : <PanelLeftClose className="h-4 w-4" />
+                    }
+                  </Button>
                   <div className="flex items-center gap-2">
                     <ThemeToggler />
                     <Link href="/profile" className="group">
@@ -112,34 +114,28 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 </header>
               )}
 
-              {/* Toggle button — visible on all non-dashboard pages, floating top-left */}
+              {/* Non-dashboard pages: just a slim back-button bar */}
               {!isDashboard && (
                 <div className="flex-shrink-0 sticky top-0 z-10 flex h-12 items-center gap-2 px-3 bg-background/80 backdrop-blur-md border-b border-border/60">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => setCollapsed(c => !c)}
-                    className="h-8 w-8 text-muted-foreground hover:text-foreground"
-                  >
-                    {collapsed
-                      ? <PanelLeftOpen className="h-4 w-4" />
-                      : <PanelLeftClose className="h-4 w-4" />
-                    }
-                  </Button>
                   <BackButton />
                 </div>
               )}
 
-              <div className={cn("flex-1 overflow-y-auto scrollbar-thin", pathname === '/chat' && "overflow-hidden h-full")}>
-                <div key={pathname} className={cn("page-enter", pathname === '/chat' && "h-full")}>
+              {/* Page content */}
+              <div className={cn(
+                "flex-1 overflow-y-auto scrollbar-thin",
+                isChat && "overflow-hidden h-full"
+              )}>
+                <div key={pathname} className={cn("page-enter", isChat && "h-full")}>
                   <div className={cn(
                     "p-4 sm:p-6 lg:p-8",
-                    (pathname === '/chat' || pathname === '/dashboard') && "p-0 h-full"
+                    (isChat || isDashboard) && "p-0 h-full"
                   )}>
                     {children}
                   </div>
                 </div>
               </div>
+
             </SidebarInset>
           </div>
         </SidebarProvider>

@@ -6,7 +6,7 @@ import { useState, useMemo } from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Loader, UploadCloud, FileDown, BookText, X, File, Image as ImageIcon } from 'lucide-react';
+import { Loader, UploadCloud, FileDown, BookText, X, File, Image as ImageIcon, HardDrive, Upload } from 'lucide-react';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import { Button } from '@/components/ui/button';
@@ -25,6 +25,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { AiLoadingScreen } from '@/components/app/ai-loading';
 import { extractTextFromImage } from '@/ai/flows/extract-text-from-image';
 import { useRouter } from 'next/navigation';
+import { useDrive } from '@/hooks/use-drive';
 
 const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
 
@@ -67,6 +68,8 @@ export default function SummarizePage() {
     const firestore = useFirestore();
     const [summarySource, setSummarySource] = useState('');
     const router = useRouter();
+    const { connected: driveConnected, openPicker, downloadFile, uploadFile } = useDrive();
+    const [savingToDrive, setSavingToDrive] = useState(false);
 
 
     const subjectsQuery = useMemoFirebase(
@@ -245,7 +248,31 @@ export default function SummarizePage() {
                         <CardTitle>
                             Provide Your Content
                         </CardTitle>
-                        <CardDescription>Paste text or upload a file to get started.</CardDescription>
+                        <CardDescription className="flex items-center justify-between">
+                            <span>Paste text or upload a file to get started.</span>
+                            {driveConnected && (
+                                <Button type="button" variant="outline" size="sm" className="gap-1.5 text-xs"
+                                    onClick={() => openPicker(async (file) => {
+                                        try {
+                                            const dataUri = await downloadFile(file.id, file.mimeType);
+                                            // Create a fake FileList-like object
+                                            const res = await fetch(dataUri);
+                                            const blob = await res.blob();
+                                            const f = new File([blob], file.name, { type: blob.type });
+                                            const dt = new DataTransfer();
+                                            dt.items.add(f);
+                                            form.setValue('file', dt.files);
+                                            setSummarySource(`from Drive: "${file.name}"`);
+                                            toast({ title: `Imported: ${file.name}` });
+                                        } catch (e: any) {
+                                            toast({ variant: 'destructive', title: 'Import failed', description: e.message });
+                                        }
+                                    })}
+                                >
+                                    <HardDrive className="h-3.5 w-3.5" /> Import from Drive
+                                </Button>
+                            )}
+                        </CardDescription>
                     </CardHeader>
                     <CardContent>
                         <Form {...form}>
@@ -420,6 +447,24 @@ export default function SummarizePage() {
                                             <FileDown className="mr-2 h-4 w-4" />
                                             Download PDF
                                         </Button>
+                                        {driveConnected && (
+                                            <Button variant="outline" size="sm" className="w-full sm:w-auto gap-1.5"
+                                                disabled={savingToDrive}
+                                                onClick={async () => {
+                                                    setSavingToDrive(true);
+                                                    try {
+                                                        const blob = new Blob([summaryResult!.summary], { type: 'text/plain' });
+                                                        await uploadFile(blob, `Summary - ${form.getValues('subject')}.txt`, 'text/plain');
+                                                        toast({ title: '✅ Saved to Google Drive!' });
+                                                    } catch (e: any) {
+                                                        toast({ variant: 'destructive', title: 'Save failed', description: e.message });
+                                                    } finally { setSavingToDrive(false); }
+                                                }}
+                                            >
+                                                {savingToDrive ? <Loader className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
+                                                Save to Drive
+                                            </Button>
+                                        )}
                                     </CardHeader>
                                     <CardContent className="space-y-4">
                                         <div className="prose prose-sm dark:prose-invert max-w-none rounded-md border bg-muted/20 p-4 leading-relaxed text-foreground">

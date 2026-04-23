@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { useToast } from '@/hooks/use-toast';
 import PageHeader from '@/components/app/page-header';
-import { Loader, ChevronLeft, PenSquare, FileDown } from 'lucide-react';
+import { Loader, ChevronLeft, PenSquare, FileDown, Upload } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { generateEssay } from '@/ai/flows/generate-essay';
 import { AnimatePresence, motion } from 'framer-motion';
@@ -21,6 +21,7 @@ import jsPDF from 'jspdf';
 import { sanitizeText, splitIntoBlocks, wrapTextToLines, LineObj } from '@/lib/pdf-utils';
 import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
 import { doc } from 'firebase/firestore';
+import { useDrive } from '@/hooks/use-drive';
 
 
 const formSchema = z.object({
@@ -34,10 +35,12 @@ type EssayFormValues = z.infer<typeof formSchema>;
 export default function EssayWriterPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [essay, setEssay] = useState<string | null>(null);
+  const [savingToDrive, setSavingToDrive] = useState(false);
   const { toast } = useToast();
   const router = useRouter();
   const { user } = useUser();
   const firestore = useFirestore();
+  const { connected: driveConnected, uploadFile } = useDrive();
 
   const userDocRef = useMemoFirebase(
     () => (user ? doc(firestore, 'users', user.uid) : null),
@@ -70,10 +73,10 @@ export default function EssayWriterPage() {
     setIsLoading(true);
     setEssay(null);
     try {
-      const result = await generateEssay({ 
-        topic: data.topic, 
+      const result = await generateEssay({
+        topic: data.topic,
         difficulty: data.difficulty,
-        specifications: data.specifications 
+        specifications: data.specifications
       });
       const cleanedEssay = cleanEssayText(result.essay);
       setEssay(cleanedEssay);
@@ -145,28 +148,28 @@ export default function EssayWriterPage() {
       docInstance.setFontSize(9);
       docInstance.setTextColor(100, 100, 100);
       docInstance.text(`Page ${pageNum} of ${total}`, pageWidth / 2, pageHeight - 30, { align: 'center' });
-      
+
       if (userProfile?.collegeName) {
         docInstance.text(userProfile.collegeName, margins.left, pageHeight - 30);
       }
       docInstance.text(studentName, pageWidth - margins.right, pageHeight - 30, { align: 'right' });
-      
+
       docInstance.setTextColor(0, 0, 0);
     };
 
     // First pass: calculate pages
     let y = margins.top;
     let pageCount = 1;
-    
+
     lines.forEach((line) => {
       const trimmedLine = line.trim();
       doc.setFontSize(FONT_SIZE);
       doc.setFont('helvetica', 'normal');
-      
+
       if (trimmedLine) {
         const wrappedLines = doc.splitTextToSize(trimmedLine, bodyWidth);
         const neededHeight = wrappedLines.length * LINE_HEIGHT;
-        
+
         if (y + neededHeight > pageHeight - margins.bottom) {
           pageCount++;
           y = margins.top;
@@ -180,34 +183,34 @@ export default function EssayWriterPage() {
         y += LINE_HEIGHT;
       }
     });
-    
+
     totalPages = pageCount;
 
     // Second pass: render
     y = margins.top;
     let currentPage = 1;
-    
+
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(FONT_SIZE);
     doc.setTextColor(0, 0, 0);
-    
+
     lines.forEach((line) => {
       const trimmedLine = line.trim();
-      
+
       if (trimmedLine) {
         const isBold = /^(Subject:|Dear|Respected|Sincerely|Yours|Thank you|Introduction|Conclusion)/i.test(trimmedLine);
         doc.setFont('helvetica', isBold ? 'bold' : 'normal');
-        
+
         const wrappedLines = doc.splitTextToSize(trimmedLine, bodyWidth);
         const neededHeight = wrappedLines.length * LINE_HEIGHT;
-        
+
         if (y + neededHeight > pageHeight - margins.bottom) {
           addHeaderFooter(doc, currentPage, totalPages);
           doc.addPage();
           currentPage++;
           y = margins.top;
         }
-        
+
         wrappedLines.forEach((wrappedLine: string) => {
           doc.text(wrappedLine, margins.left, y);
           y += LINE_HEIGHT;
@@ -222,7 +225,7 @@ export default function EssayWriterPage() {
         y += LINE_HEIGHT;
       }
     });
-    
+
     addHeaderFooter(doc, currentPage, totalPages);
     doc.save('essay.pdf');
   };
@@ -283,9 +286,9 @@ export default function EssayWriterPage() {
                     <FormItem>
                       <FormLabel>Additional Specifications (Optional)</FormLabel>
                       <FormControl>
-                        <Input 
-                          placeholder="e.g., Include examples, focus on economic impact, 1000 words" 
-                          {...field} 
+                        <Input
+                          placeholder="e.g., Include examples, focus on economic impact, 1000 words"
+                          {...field}
                         />
                       </FormControl>
                       <FormMessage />
@@ -325,6 +328,24 @@ export default function EssayWriterPage() {
                     <FileDown className="mr-2 h-4 w-4" />
                     Download PDF
                   </Button>
+                  {driveConnected && (
+                    <Button variant="outline" size="sm" className="gap-1.5"
+                      disabled={savingToDrive}
+                      onClick={async () => {
+                        setSavingToDrive(true);
+                        try {
+                          const blob = new Blob([essay!], { type: 'text/plain' });
+                          await uploadFile(blob, `Essay - ${form.getValues('topic')}.txt`, 'text/plain');
+                          toast({ title: '✅ Saved to Google Drive!' });
+                        } catch (e: any) {
+                          toast({ variant: 'destructive', title: 'Save failed', description: e.message });
+                        } finally { setSavingToDrive(false); }
+                      }}
+                    >
+                      {savingToDrive ? <Loader className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
+                      Save to Drive
+                    </Button>
+                  )}
                 </CardHeader>
                 <CardContent>
                   <div className="max-w-none rounded-md border p-6 bg-muted/50">
