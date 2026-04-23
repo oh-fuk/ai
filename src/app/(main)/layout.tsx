@@ -51,7 +51,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { user } = useUser();
   const firestore = useFirestore();
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(true);
 
   const userDocRef = useMemoFirebase(
     () => (user ? doc(firestore, 'users', user.uid) : null),
@@ -82,14 +82,39 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
             {/* Main content */}
             <SidebarInset className="flex flex-col flex-1 h-full overflow-hidden">
-              <header className={cn(
-                "flex-shrink-0 sticky top-0 z-10 flex h-14 items-center justify-between gap-4 px-4 sm:h-16 sm:px-6 transition-all duration-200",
-                isDashboard
-                  ? "bg-transparent border-none"
-                  : "bg-background/80 backdrop-blur-md border-b border-border/60"
-              )}>
-                <div className="flex items-center gap-2">
-                  {/* Toggle button */}
+              {/* Header — only on dashboard */}
+              {isDashboard && (
+                <header className="flex-shrink-0 sticky top-0 z-10 flex h-14 items-center justify-between gap-4 px-4 sm:h-16 sm:px-6 bg-transparent border-none transition-all duration-200">
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => setCollapsed(c => !c)}
+                      className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                    >
+                      {collapsed
+                        ? <PanelLeftOpen className="h-4 w-4" />
+                        : <PanelLeftClose className="h-4 w-4" />
+                      }
+                    </Button>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <ThemeToggler />
+                    <Link href="/profile" className="group">
+                      <Avatar className="h-8 w-8 ring-2 ring-transparent group-hover:ring-primary/40 transition-all duration-200">
+                        <AvatarImage src={avatarUrl} alt={fullName} />
+                        <AvatarFallback className="bg-primary/10 text-primary font-semibold text-sm">
+                          {userInitial}
+                        </AvatarFallback>
+                      </Avatar>
+                    </Link>
+                  </div>
+                </header>
+              )}
+
+              {/* Toggle button — visible on all non-dashboard pages, floating top-left */}
+              {!isDashboard && (
+                <div className="flex-shrink-0 sticky top-0 z-10 flex h-12 items-center gap-2 px-3 bg-background/80 backdrop-blur-md border-b border-border/60">
                   <Button
                     variant="ghost"
                     size="icon"
@@ -101,20 +126,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                       : <PanelLeftClose className="h-4 w-4" />
                     }
                   </Button>
-                  {!isDashboard && <BackButton />}
+                  <BackButton />
                 </div>
-                <div className="flex items-center gap-2">
-                  <ThemeToggler />
-                  <Link href="/profile" className="group">
-                    <Avatar className="h-8 w-8 ring-2 ring-transparent group-hover:ring-primary/40 transition-all duration-200">
-                      <AvatarImage src={avatarUrl} alt={fullName} />
-                      <AvatarFallback className="bg-primary/10 text-primary font-semibold text-sm">
-                        {userInitial}
-                      </AvatarFallback>
-                    </Avatar>
-                  </Link>
-                </div>
-              </header>
+              )}
 
               <div className={cn("flex-1 overflow-y-auto scrollbar-thin", pathname === '/chat' && "overflow-hidden h-full")}>
                 <div key={pathname} className={cn("page-enter", pathname === '/chat' && "h-full")}>
