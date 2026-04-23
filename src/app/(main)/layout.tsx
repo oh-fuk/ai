@@ -4,8 +4,8 @@ import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
 import { useUser, useDoc, useFirestore, useMemoFirebase } from '@/firebase';
 import { doc } from 'firebase/firestore';
 import { useRouter } from 'next/navigation';
-import { useEffect, memo, useState } from 'react';
-import { Loader, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
+import { useEffect, memo, useState, useCallback } from 'react';
+import { Loader } from 'lucide-react';
 import { ThemeToggler } from "@/components/app/theme-toggler";
 import { NotificationProvider } from "@/context/notification-context";
 import { usePathname } from "next/navigation";
@@ -14,7 +14,6 @@ import Link from 'next/link';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import BackButton from '@/components/app/back-button';
 import { MusicPlayer } from '@/components/app/music-player';
-import { Button } from '@/components/ui/button';
 
 const AppSidebar = dynamic(() => import("@/app/(main)/app-sidebar"), {
   loading: () => <div className="w-[60px] h-full bg-sidebar animate-pulse" />,
@@ -25,24 +24,17 @@ const AuthGuard = memo(function AuthGuard({ children }: { children: React.ReactN
   const { user, isUserLoading } = useUser();
   const firestore = useFirestore();
   const router = useRouter();
-
-  const userDocRef = useMemoFirebase(
-    () => (user ? doc(firestore, 'users', user.uid) : null),
-    [firestore, user]
-  );
+  const userDocRef = useMemoFirebase(() => (user ? doc(firestore, 'users', user.uid) : null), [firestore, user]);
   const { data: userProfile, isLoading: isProfileLoading } = useDoc(userDocRef);
 
   useEffect(() => {
     if (isUserLoading || isProfileLoading) return;
     if (!user) { router.replace('/login'); return; }
-    if (userProfile && userProfile.hasCompletedOnboarding === false) {
-      router.replace('/onboarding');
-    }
+    if (userProfile && userProfile.hasCompletedOnboarding === false) router.replace('/onboarding');
   }, [user, userProfile, isUserLoading, isProfileLoading, router]);
 
-  if (isUserLoading || (user && isProfileLoading)) {
+  if (isUserLoading || (user && isProfileLoading))
     return <div className="flex h-screen w-full items-center justify-center"><Loader className="h-8 w-8 animate-spin" /></div>;
-  }
   if (user && userProfile?.hasCompletedOnboarding) return <>{children}</>;
   return <div className="flex h-screen w-full items-center justify-center"><Loader className="h-8 w-8 animate-spin" /></div>;
 });
@@ -51,21 +43,26 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { user } = useUser();
   const firestore = useFirestore();
+  // collapsed = icon-only, expanded = full width
   const [collapsed, setCollapsed] = useState(true);
+  // hovered = temporarily expanded on mouse-enter
+  const [hovered, setHovered] = useState(false);
 
-  const userDocRef = useMemoFirebase(
-    () => (user ? doc(firestore, 'users', user.uid) : null),
-    [user, firestore]
-  );
+  const userDocRef = useMemoFirebase(() => (user ? doc(firestore, 'users', user.uid) : null), [user, firestore]);
   const { data: userProfile } = useDoc(userDocRef);
 
   const avatarUrl = userProfile?.avatarUrl;
   const fullName = userProfile?.fullName || 'Student';
   const userInitial = fullName?.charAt(0).toUpperCase() || 'S';
 
-  // Sidebar only shows on dashboard
   const isDashboard = pathname === '/dashboard';
   const isChat = pathname === '/chat';
+
+  // Sidebar is "open" if manually expanded OR hovered
+  const sidebarOpen = !collapsed || hovered;
+
+  const handleMouseEnter = useCallback(() => { if (collapsed) setHovered(true); }, [collapsed]);
+  const handleMouseLeave = useCallback(() => setHovered(false), []);
 
   return (
     <AuthGuard>
@@ -75,31 +72,25 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
             {/* ── Sidebar: only on dashboard ── */}
             {isDashboard && (
-              <div className={cn(
-                "flex-shrink-0 h-full border-r border-sidebar-border transition-all duration-300 ease-in-out overflow-hidden",
-                collapsed ? "w-[60px]" : "w-[240px]"
-              )}>
-                <AppSidebar collapsed={collapsed} />
+              <div
+                onMouseEnter={handleMouseEnter}
+                onMouseLeave={handleMouseLeave}
+                className={cn(
+                  "flex-shrink-0 h-full border-r border-sidebar-border transition-all duration-250 ease-in-out overflow-hidden z-20",
+                  sidebarOpen ? "w-[220px]" : "w-[56px]"
+                )}
+              >
+                <AppSidebar collapsed={!sidebarOpen} />
               </div>
             )}
 
             {/* ── Main content ── */}
             <SidebarInset className="flex flex-col flex-1 h-full overflow-hidden">
 
-              {/* Dashboard header: sidebar toggle + theme + avatar */}
+              {/* Dashboard header */}
               {isDashboard && (
                 <header className="flex-shrink-0 sticky top-0 z-10 flex h-14 items-center justify-between gap-4 px-4 sm:h-16 sm:px-6 bg-transparent border-none">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => setCollapsed(c => !c)}
-                    className="h-8 w-8 text-white/70 hover:text-white hover:bg-white/10"
-                  >
-                    {collapsed
-                      ? <PanelLeftOpen className="h-4 w-4" />
-                      : <PanelLeftClose className="h-4 w-4" />
-                    }
-                  </Button>
+                  <div />
                   <div className="flex items-center gap-2">
                     <ThemeToggler />
                     <Link href="/profile" className="group">
@@ -114,14 +105,14 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 </header>
               )}
 
-              {/* Non-dashboard pages: just a slim back-button bar */}
+              {/* Non-dashboard: slim back-button bar */}
               {!isDashboard && (
                 <div className="flex-shrink-0 sticky top-0 z-10 flex h-12 items-center gap-2 px-3 bg-background/80 backdrop-blur-md border-b border-border/60">
                   <BackButton />
                 </div>
               )}
 
-              {/* Page content */}
+              {/* Page content — pt accounts for header height on non-dashboard */}
               <div className={cn(
                 "flex-1 overflow-y-auto scrollbar-thin",
                 isChat && "overflow-hidden h-full"

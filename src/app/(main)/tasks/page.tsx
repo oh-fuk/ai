@@ -289,9 +289,9 @@ export default function TasksPage() {
     };
 
     return (
-        <div className="flex flex-col h-screen">
+        <div className="flex flex-col h-full">
             {/* Header */}
-            <div className="border-b bg-background sticky top-0 z-40">
+            <div className="border-b bg-background">
                 <div className="flex items-center gap-4 p-6">
                     <PageHeader
                         title="📋 Your Tasks"
