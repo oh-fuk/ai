@@ -80,7 +80,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                   sidebarOpen ? "w-[220px]" : "w-[56px]"
                 )}
               >
-                <AppSidebar collapsed={!sidebarOpen} />
+                {/* Always collapsed=true — width expands on hover but items stay icon+click mode */}
+                <AppSidebar collapsed={true} hovered={sidebarOpen} />
               </div>
             )}
 
