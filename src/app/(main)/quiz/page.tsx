@@ -15,11 +15,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
@@ -34,8 +30,98 @@ import { checkBulkQuizAnswers, AnswerResult } from '@/ai/flows/check-bulk-quiz-a
 import { useToast } from '@/hooks/use-toast';
 import { useUser, useFirestore, useCollection, useMemoFirebase, useDoc, addDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase';
 import { collection, addDoc, serverTimestamp, doc, query, updateDoc } from 'firebase/firestore';
-// Avoid next/navigation useSearchParams (can require Suspense during prerender).
 import { extractTextFromImage } from '@/ai/flows/extract-text-from-image';
+import { motion, AnimatePresence } from 'framer-motion';
+
+/* ─── Quiz question flip card ───────────────────────────────────────────── */
+function QuizFlipCard({
+  question, index, userAnswer, result, onAnswerChange, disabled,
+}: {
+  question: QuizQuestion;
+  index: number;
+  userAnswer?: string;
+  result?: AnswerResult;
+  onAnswerChange: (i: number, v: string) => void;
+  disabled: boolean;
+}) {
+  const [flipped, setFlipped] = useState(false);
+  const isCorrect = result?.isCorrect;
+
+  return (
+    <div
+      className="relative min-h-[160px] cursor-pointer"
+      style={{ perspective: '1000px' }}
+      onClick={() => result && setFlipped(f => !f)}
+    >
+      <motion.div
+        animate={{ rotateY: flipped ? 180 : 0 }}
+        transition={{ duration: 0.45, ease: 'easeInOut' }}
+        style={{ transformStyle: 'preserve-3d' }}
+        className="relative w-full"
+      >
+        {/* Front */}
+        <div
+          className="w-full rounded-xl border bg-card p-5 space-y-3"
+          style={{ backfaceVisibility: 'hidden' }}
+          onClick={e => e.stopPropagation()}
+        >
+          <div className="flex items-start gap-3">
+            <span className={`flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-white
+              ${result ? (isCorrect ? 'bg-green-500' : 'bg-red-500') : 'bg-primary'}`}>
+              {index + 1}
+            </span>
+            <p className="font-medium text-sm leading-relaxed">{question.question}</p>
+          </div>
+          <RadioGroup
+            value={userAnswer || ''}
+            onValueChange={v => onAnswerChange(index, v)}
+            disabled={disabled}
+            className="pl-10 space-y-2"
+          >
+            {question.options.map((opt, j) => (
+              <div key={j} className="flex items-center gap-2">
+                <RadioGroupItem value={opt} id={`q${index}o${j}`} />
+                <Label htmlFor={`q${index}o${j}`} className="font-normal text-sm cursor-pointer">{opt}</Label>
+              </div>
+            ))}
+          </RadioGroup>
+          {result && (
+            <p className="pl-10 text-xs text-muted-foreground flex items-center gap-1">
+              {isCorrect
+                ? <><CheckCircle className="h-3.5 w-3.5 text-green-500" /> Correct!</>
+                : <><XCircle className="h-3.5 w-3.5 text-red-500" /> Incorrect — tap to see explanation</>
+              }
+            </p>
+          )}
+        </div>
+
+        {/* Back */}
+        {result && (
+          <div
+            className={`absolute inset-0 rounded-xl p-5 space-y-3
+              ${isCorrect
+                ? 'bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800'
+                : 'bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800'}`}
+            style={{ backfaceVisibility: 'hidden', transform: 'rotateY(180deg)' }}
+          >
+            <div className="flex items-center gap-2">
+              {isCorrect
+                ? <CheckCircle className="h-5 w-5 text-green-600" />
+                : <XCircle className="h-5 w-5 text-red-600" />}
+              <span className={`font-semibold text-sm ${isCorrect ? 'text-green-700 dark:text-green-300' : 'text-red-700 dark:text-red-300'}`}>
+                {isCorrect ? 'Correct!' : `Answer: ${question.correctAnswer}`}
+              </span>
+            </div>
+            {result.explanation && (
+              <p className="text-xs text-muted-foreground leading-relaxed">{result.explanation}</p>
+            )}
+            <p className="text-xs text-muted-foreground/50">← Tap to go back</p>
+          </div>
+        )}
+      </motion.div>
+    </div>
+  );
+}
 
 
 const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
@@ -721,56 +807,38 @@ export default function QuizPage() {
           <CardHeader>
             <CardTitle>Your Quiz on "{form.getValues('topic') || 'the uploaded content'}"</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-8">
-            {quiz.questions.map((q, i) => (
-              <div key={q.question} className="space-y-4">
-                <p className="font-semibold">{i + 1}. {q.question}</p>
-                <RadioGroup onValueChange={(value) => handleAnswerChange(i, value)} value={userAnswers[i]}>
-                  {q.options.map((option, j) => (
-                    <div key={option} className="flex items-center space-x-2">
-                      <RadioGroupItem value={option} id={`q${i}o${j}`} disabled={!!results} />
-                      <Label htmlFor={`q${i}o${j}`} className="font-normal">{option}</Label>
-                    </div>
-                  ))}
-                </RadioGroup>
-                {results && results[i] && (
-                  <div className={`mt-4 rounded-md p-4 text-sm ${results[i].isCorrect ? 'bg-green-100 border-green-200 text-green-800' : 'bg-red-100 border-red-200 text-red-800'}`}>
-                    {results[i].isCorrect ? (
-                      <div className="flex items-center gap-2">
-                        <CheckCircle className="h-5 w-5" />
-                        <strong>Correct!</strong>
-                      </div>
-                    ) : (
-                      <div className="space-y-2">
-                        <div className="flex items-center gap-2 font-bold">
-                          <XCircle className="h-5 w-5" />
-                          Incorrect. The correct answer is: {q.correctAnswer}
-                        </div>
-                        <p><strong>Explanation:</strong> {results[i].explanation}</p>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            ))}
+          <CardContent className="space-y-4">
+            <AnimatePresence>
+              {quiz.questions.map((q, i) => (
+                <motion.div
+                  key={i}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.3, delay: i * 0.07 }}
+                >
+                  <QuizFlipCard
+                    question={q}
+                    index={i}
+                    userAnswer={userAnswers[i]}
+                    result={results?.[i]}
+                    onAnswerChange={handleAnswerChange}
+                    disabled={!!results}
+                  />
+                </motion.div>
+              ))}
+            </AnimatePresence>
             <div className="flex flex-col sm:flex-row gap-4 pt-6">
               {!results ? (
                 <Button onClick={checkAnswers} disabled={isChecking || Object.keys(userAnswers).length !== quiz.questions.length} className="w-full sm:w-auto">
-                  {isChecking ? (
-                    <>
-                      <Loader className="mr-2 h-4 w-4 animate-spin" />
-                      Checking...
-                    </>
-                  ) : 'Check Answers'}
+                  {isChecking ? <><Loader className="mr-2 h-4 w-4 animate-spin" />Checking...</> : 'Submit Answers'}
                 </Button>
               ) : (
                 <>
-                  <div className="flex-1 rounded-md bg-primary/10 p-4 text-center text-lg font-bold text-primary">
-                    Your Score: {score} / {totalQuestions}
+                  <div className="flex-1 rounded-xl bg-primary/10 p-4 text-center text-lg font-bold text-primary">
+                    Score: {score} / {totalQuestions}
                   </div>
-                  <Button onClick={downloadPdf} className="w-full sm:w-auto">
-                    <FileDown className="mr-2 h-4 w-4" />
-                    Download Results
+                  <Button onClick={downloadPdf} variant="outline" className="w-full sm:w-auto">
+                    <FileDown className="mr-2 h-4 w-4" />Download Results
                   </Button>
                 </>
               )}

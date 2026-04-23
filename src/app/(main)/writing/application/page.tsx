@@ -16,6 +16,7 @@ import { Loader, Briefcase, FileDown, Eye } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { generateApplication } from '@/ai/flows/generate-application';
 import { AnimatePresence, motion } from 'framer-motion';
+import { AiLoadingScreen } from '@/components/app/ai-loading';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import { sanitizeText, splitIntoBlocks, wrapTextToLines, getLinesFromBlock, LineObj, BlockLine, TextBlock } from '@/lib/pdf-utils';
@@ -117,7 +118,7 @@ export default function ApplicationWriterPage() {
     const FONT_SIZE = 12;
     const LINE_HEIGHT = 18; // 1.5x line height
     const margins = { top: 80, bottom: 60, left: 60, right: 60 };
-    
+
     doc.setProperties({ title: reportTitle, subject: form.getValues('topic') });
 
     const pageWidth = doc.internal.pageSize.getWidth();
@@ -126,9 +127,9 @@ export default function ApplicationWriterPage() {
 
     // Split content by lines (exactly as shown on screen)
     const lines = applicationContent.split('\n');
-    
+
     let totalPages = 1;
-    
+
     const addHeaderFooter = (docInstance: jsPDF, pageNum: number) => {
       // Header
       docInstance.setFont('helvetica', 'bold');
@@ -150,12 +151,12 @@ export default function ApplicationWriterPage() {
       docInstance.setFontSize(9);
       docInstance.setTextColor(100, 100, 100);
       docInstance.text(`Page ${pageNum} of ${totalPages}`, pageWidth / 2, pageHeight - 30, { align: 'center' });
-      
+
       if (userProfile?.collegeName) {
         docInstance.text(userProfile.collegeName, margins.left, pageHeight - 30);
       }
       docInstance.text(studentName, pageWidth - margins.right, pageHeight - 30, { align: 'right' });
-      
+
       // Reset text color
       docInstance.setTextColor(0, 0, 0);
     };
@@ -163,18 +164,18 @@ export default function ApplicationWriterPage() {
     // First pass: calculate total pages
     let y = margins.top;
     let pageCount = 1;
-    
+
     lines.forEach((line) => {
       const trimmedLine = line.trim();
-      
+
       // Check if line needs wrapping
       doc.setFontSize(FONT_SIZE);
       doc.setFont('helvetica', 'normal');
-      
+
       if (trimmedLine) {
         const wrappedLines = doc.splitTextToSize(trimmedLine, bodyWidth);
         const neededHeight = wrappedLines.length * LINE_HEIGHT;
-        
+
         if (y + neededHeight > pageHeight - margins.bottom) {
           pageCount++;
           y = margins.top;
@@ -189,30 +190,30 @@ export default function ApplicationWriterPage() {
         y += LINE_HEIGHT;
       }
     });
-    
+
     totalPages = pageCount;
 
     // Second pass: render content
     y = margins.top;
     let currentPage = 1;
-    
+
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(FONT_SIZE);
     doc.setTextColor(0, 0, 0);
-    
+
     lines.forEach((line, index) => {
       const trimmedLine = line.trim();
-      
+
       if (trimmedLine) {
         // Check for bold text (Subject:, Dear, Sincerely, etc.)
         const isBold = /^(Subject:|Dear|Respected|Sincerely|Yours|Thank you)/i.test(trimmedLine);
-        
+
         doc.setFont('helvetica', isBold ? 'bold' : 'normal');
-        
+
         // Wrap text if needed
         const wrappedLines = doc.splitTextToSize(trimmedLine, bodyWidth);
         const neededHeight = wrappedLines.length * LINE_HEIGHT;
-        
+
         // Check if we need a new page
         if (y + neededHeight > pageHeight - margins.bottom) {
           addHeaderFooter(doc, currentPage);
@@ -220,7 +221,7 @@ export default function ApplicationWriterPage() {
           currentPage++;
           y = margins.top;
         }
-        
+
         // Render each wrapped line
         wrappedLines.forEach((wrappedLine: string) => {
           doc.text(wrappedLine, margins.left, y);
@@ -237,7 +238,7 @@ export default function ApplicationWriterPage() {
         y += LINE_HEIGHT;
       }
     });
-    
+
     // Add header/footer to last page
     addHeaderFooter(doc, currentPage);
 
@@ -321,14 +322,7 @@ export default function ApplicationWriterPage() {
         <AnimatePresence>
           {isLoading ? (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-              <Card>
-                <CardHeader>
-                  <CardTitle>Generating Your Application</CardTitle>
-                </CardHeader>
-                <CardContent className="flex justify-center items-center py-16">
-                  <Loader className="h-10 w-10 animate-spin text-primary" />
-                </CardContent>
-              </Card>
+              <AiLoadingScreen variant="generic" title="Writing your application..." />
             </motion.div>
           ) : applicationContent ? (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>

@@ -15,6 +15,7 @@ import { Loader, ChevronLeft, BookOpen, FileDown, Eye } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { generateLetter } from '@/ai/flows/generate-letter';
 import { AnimatePresence, motion } from 'framer-motion';
+import { AiLoadingScreen } from '@/components/app/ai-loading';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import { sanitizeText, splitIntoBlocks, wrapTextToLines, getLinesFromBlock, LineObj } from '@/lib/pdf-utils';
@@ -302,14 +303,7 @@ export default function LetterWriterPage() {
         <AnimatePresence>
           {isLoading ? (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-              <Card>
-                <CardHeader>
-                  <CardTitle>Generating Your Letter</CardTitle>
-                </CardHeader>
-                <CardContent className="flex justify-center items-center py-16">
-                  <Loader className="h-10 w-10 animate-spin text-primary" />
-                </CardContent>
-              </Card>
+              <AiLoadingScreen variant="generic" title="Writing your letter..." />
             </motion.div>
           ) : letterContent ? (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>

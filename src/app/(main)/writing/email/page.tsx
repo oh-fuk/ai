@@ -16,6 +16,7 @@ import { Loader, ChevronLeft, FileText, FileDown, Eye } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { generateEmail } from '@/ai/flows/generate-email';
 import { AnimatePresence, motion } from 'framer-motion';
+import { AiLoadingScreen } from '@/components/app/ai-loading';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import { sanitizeText, splitIntoBlocks, wrapTextToLines, getLinesFromBlock, LineObj } from '@/lib/pdf-utils';
@@ -146,24 +147,24 @@ export default function EmailWriterPage() {
       doc.setFont('helvetica', 'bold');
       doc.setTextColor(0, 0, 0);
       doc.text('AthenaAI', margins.left, 20);
-      
+
       doc.setFontSize(12);
       doc.setFont('helvetica', 'normal');
       doc.text(userProfile?.collegeName || '', pageWidth - margins.right, 20, { align: 'right' });
-      
+
       doc.setLineWidth(0.5);
       doc.setDrawColor(0, 0, 0);
       doc.line(margins.left, 25, pageWidth - margins.right, 25);
-      
+
       doc.setFontSize(14);
       doc.setFont('helvetica', 'bold');
       doc.text(`Email: ${title}`, pageWidth / 2, 35, { align: 'center' });
-      
+
       doc.setFontSize(11);
       doc.setFont('helvetica', 'normal');
       doc.text(`Student: ${studentName}`, margins.left, 45);
       doc.text(new Date().toLocaleDateString(), pageWidth - margins.right, 45, { align: 'right' });
-      
+
       // Footer
       doc.setFontSize(10);
       doc.text(`Page ${pageNum} of ${totalPages}`, pageWidth / 2, pageHeight - 10, { align: 'center' });
@@ -195,16 +196,16 @@ export default function EmailWriterPage() {
     let pageCount = 1;
     const FONT_SIZE = 12;
     const LINE_HEIGHT = 18;
-    
+
     lines.forEach((line) => {
       const trimmedLine = line.trim();
       doc.setFontSize(FONT_SIZE);
       doc.setFont('helvetica', 'normal');
-      
+
       if (trimmedLine) {
         const wrappedLines = doc.splitTextToSize(trimmedLine, usableWidth);
         const neededHeight = wrappedLines.length * LINE_HEIGHT;
-        
+
         if (y + neededHeight > pageHeight - margins.bottom) {
           pageCount++;
           y = margins.top;
@@ -218,7 +219,7 @@ export default function EmailWriterPage() {
         y += LINE_HEIGHT;
       }
     });
-    
+
     totalPages = pageCount;
 
     /* ----------------------------------------
@@ -226,28 +227,28 @@ export default function EmailWriterPage() {
     ---------------------------------------- */
     y = margins.top;
     let currentPage = 1;
-    
+
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(FONT_SIZE);
     doc.setTextColor(0, 0, 0);
-    
+
     lines.forEach((line) => {
       const trimmedLine = line.trim();
-      
+
       if (trimmedLine) {
         const isBold = /^(Subject:|To:|From:|Dear|Respected|Sincerely|Yours|Thank you|Best regards)/i.test(trimmedLine);
         doc.setFont('helvetica', isBold ? 'bold' : 'normal');
-        
+
         const wrappedLines = doc.splitTextToSize(trimmedLine, usableWidth);
         const neededHeight = wrappedLines.length * LINE_HEIGHT;
-        
+
         if (y + neededHeight > pageHeight - margins.bottom) {
           addHeaderFooter(currentPage, totalPages);
           doc.addPage();
           currentPage++;
           y = margins.top;
         }
-        
+
         wrappedLines.forEach((wrappedLine: string) => {
           doc.text(wrappedLine, margins.left, y);
           y += LINE_HEIGHT;
@@ -262,7 +263,7 @@ export default function EmailWriterPage() {
         y += LINE_HEIGHT;
       }
     });
-    
+
     addHeaderFooter(currentPage, totalPages);
 
     // Save with a contextual filename
@@ -347,14 +348,7 @@ export default function EmailWriterPage() {
         <AnimatePresence>
           {isLoading ? (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-              <Card>
-                <CardHeader>
-                  <CardTitle>Generating Your Email</CardTitle>
-                </CardHeader>
-                <CardContent className="flex justify-center items-center py-16">
-                  <Loader className="h-10 w-10 animate-spin text-primary" />
-                </CardContent>
-              </Card>
+              <AiLoadingScreen variant="generic" title="Writing your email..." />
             </motion.div>
           ) : emailContent ? (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
@@ -374,15 +368,15 @@ export default function EmailWriterPage() {
                     {(() => {
                       const sanitized = sanitizeText(emailContent || '');
                       const lines = sanitized.split('\n');
-                      
+
                       return lines.map((line, i) => {
                         const trimmed = line.trim();
-                        
+
                         // Empty line - show as visible blank space
                         if (!trimmed) {
                           return <div key={i} style={{ height: '1.5em' }}>&nbsp;</div>;
                         }
-                        
+
                         // Check for Subject: line
                         if (trimmed.startsWith('Subject:')) {
                           return (
@@ -391,7 +385,7 @@ export default function EmailWriterPage() {
                             </div>
                           );
                         }
-                        
+
                         // Check for section headings (lines with **text**)
                         const boldMatch = trimmed.match(/^\*\*(.*?)\*\*$/);
                         if (boldMatch) {
@@ -401,7 +395,7 @@ export default function EmailWriterPage() {
                             </div>
                           );
                         }
-                        
+
                         // Regular line with inline bold
                         const parts = trimmed.split(/(\*\*.*?\*\*)/g).filter(Boolean);
                         const inlineNodes = parts.map((part, idx) => {
@@ -409,7 +403,7 @@ export default function EmailWriterPage() {
                           if (m) return <strong key={idx} className="font-bold">{m[1]}</strong>;
                           return <span key={idx}>{part}</span>;
                         });
-                        
+
                         return (
                           <div key={i} style={{ marginBottom: '0.3em' }}>
                             {inlineNodes}

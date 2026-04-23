@@ -24,6 +24,7 @@ import { generateGuessPaper, GuessPaperOutput } from '@/ai/flows/generate-guess-
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Badge } from '@/components/ui/badge';
 import { useRouter } from 'next/navigation';
+import { AiLoadingScreen } from '@/components/app/ai-loading';
 
 const fileSchema = z.object({
     file: z.instanceof(File),
@@ -361,15 +362,7 @@ export default function GuessPaperPage() {
                     <AnimatePresence>
                         {isLoading && (
                             <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }}>
-                                <Card>
-                                    <CardHeader>
-                                        <CardTitle>Generating Guess Paper</CardTitle>
-                                        <CardDescription>The AI is analyzing the past papers to find trends and predict questions. This may take a few moments.</CardDescription>
-                                    </CardHeader>
-                                    <CardContent className='flex justify-center items-center py-16'>
-                                        <Loader className="h-10 w-10 animate-spin text-primary" />
-                                    </CardContent>
-                                </Card>
+                                <AiLoadingScreen variant="generic" title="Analyzing past papers & generating guess paper..." />
                             </motion.div>
                         )}
                         {result && !isLoading && (

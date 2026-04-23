@@ -28,6 +28,159 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useRouter } from 'next/navigation';
 import { extractTextFromImage } from '@/ai/flows/extract-text-from-image';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { motion, AnimatePresence } from 'framer-motion';
+
+/* ─── Step-by-step paper generation animation ───────────────────────────── */
+function PaperGeneratingAnimation({ mcqCount, shortCount, longCount }: {
+    mcqCount: number; shortCount: number; longCount: number;
+}) {
+    const steps = [
+        mcqCount > 0 && { label: `Generating ${mcqCount} MCQs`, icon: '📝', color: 'text-blue-500' },
+        shortCount > 0 && { label: `Generating ${shortCount} Short Questions`, icon: '✏️', color: 'text-green-500' },
+        longCount > 0 && { label: `Generating ${longCount} Long Questions`, icon: '📄', color: 'text-purple-500' },
+        { label: 'Finalizing Paper', icon: '✅', color: 'text-primary' },
+    ].filter(Boolean) as { label: string; icon: string; color: string }[];
+
+    const [currentStep, setCurrentStep] = useState(0);
+
+    useEffect(() => {
+        if (currentStep >= steps.length - 1) return;
+        const delay = currentStep === 0 ? 1200 : 1800;
+        const t = setTimeout(() => setCurrentStep(s => s + 1), delay);
+        return () => clearTimeout(t);
+    }, [currentStep, steps.length]);
+
+    return (
+        <div className="flex flex-col gap-8">
+            <PageHeader title="Exam Paper Generator" description="Create a custom exam paper or let AI generate one based on your progress." />
+            <div className="flex flex-col items-center justify-center py-16 gap-8">
+                <div className="relative">
+                    <div className="w-20 h-20 rounded-full border-4 border-primary/20 border-t-primary animate-spin" />
+                    <span className="absolute inset-0 flex items-center justify-center text-2xl">
+                        {steps[currentStep]?.icon}
+                    </span>
+                </div>
+                <div className="flex flex-col gap-3 w-full max-w-sm">
+                    {steps.map((step, i) => (
+                        <motion.div
+                            key={i}
+                            initial={{ opacity: 0, x: -20 }}
+                            animate={{ opacity: i <= currentStep ? 1 : 0.3, x: 0 }}
+                            transition={{ duration: 0.4, delay: i * 0.1 }}
+                            className="flex items-center gap-3 px-4 py-3 rounded-xl bg-muted/50"
+                        >
+                            <span className="text-lg">{step.icon}</span>
+                            <span className={`text-sm font-medium ${i <= currentStep ? step.color : 'text-muted-foreground'}`}>
+                                {step.label}
+                            </span>
+                            {i < currentStep && <CheckCircle className="h-4 w-4 text-green-500 ml-auto" />}
+                            {i === currentStep && <Loader className="h-4 w-4 animate-spin ml-auto text-primary" />}
+                        </motion.div>
+                    ))}
+                </div>
+            </div>
+        </div>
+    );
+}
+
+/* ─── Flip card for questions ───────────────────────────────────────────── */
+function QuestionFlipCard({
+    question, index, userAnswer, result, onAnswerChange, disabled,
+}: {
+    question: Question;
+    index: number;
+    userAnswer?: string;
+    result?: AnswerResult;
+    onAnswerChange: (i: number, v: string) => void;
+    disabled: boolean;
+}) {
+    const [flipped, setFlipped] = useState(false);
+    const isCorrect = result?.isCorrect;
+
+    return (
+        <div
+            className="relative min-h-[180px] cursor-pointer"
+            style={{ perspective: '1000px' }}
+            onClick={() => result && setFlipped(f => !f)}
+        >
+            <motion.div
+                animate={{ rotateY: flipped ? 180 : 0 }}
+                transition={{ duration: 0.5, ease: 'easeInOut' }}
+                style={{ transformStyle: 'preserve-3d' }}
+                className="relative w-full"
+            >
+                {/* Front */}
+                <div
+                    className="w-full rounded-xl border bg-card p-5 space-y-4"
+                    style={{ backfaceVisibility: 'hidden' }}
+                    onClick={e => e.stopPropagation()}
+                >
+                    <div className="flex items-start gap-3">
+                        <span className={`flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-white
+                            ${result ? (isCorrect ? 'bg-green-500' : 'bg-red-500') : 'bg-primary'}`}>
+                            {index + 1}
+                        </span>
+                        <p className="font-medium text-sm leading-relaxed">{question.question}</p>
+                    </div>
+
+                    {question.type === 'mcq' && question.options && (
+                        <RadioGroup
+                            value={userAnswer || ''}
+                            onValueChange={v => onAnswerChange(index, v)}
+                            disabled={disabled}
+                            className="pl-10 space-y-2"
+                        >
+                            {question.options.map((opt, j) => (
+                                <div key={j} className="flex items-center gap-2">
+                                    <RadioGroupItem value={opt} id={`q${index}o${j}`} />
+                                    <Label htmlFor={`q${index}o${j}`} className="font-normal text-sm cursor-pointer">{opt}</Label>
+                                </div>
+                            ))}
+                        </RadioGroup>
+                    )}
+
+                    {question.type !== 'mcq' && (
+                        <textarea
+                            className="w-full ml-10 text-sm border rounded-lg p-2 bg-background resize-none focus:outline-none focus:ring-1 focus:ring-primary"
+                            rows={3}
+                            placeholder="Write your answer..."
+                            value={userAnswer || ''}
+                            onChange={e => onAnswerChange(index, e.target.value)}
+                            disabled={disabled}
+                            onClick={e => e.stopPropagation()}
+                        />
+                    )}
+
+                    {result && (
+                        <div className="pl-10 text-xs text-muted-foreground flex items-center gap-1">
+                            {isCorrect ? <CheckCircle className="h-3.5 w-3.5 text-green-500" /> : <XCircle className="h-3.5 w-3.5 text-red-500" />}
+                            {isCorrect ? 'Correct!' : 'Incorrect — tap card to see explanation'}
+                        </div>
+                    )}
+                </div>
+
+                {/* Back (result detail) */}
+                {result && (
+                    <div
+                        className={`absolute inset-0 rounded-xl p-5 space-y-3 ${isCorrect ? 'bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800' : 'bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800'}`}
+                        style={{ backfaceVisibility: 'hidden', transform: 'rotateY(180deg)' }}
+                    >
+                        <div className="flex items-center gap-2">
+                            {isCorrect ? <CheckCircle className="h-5 w-5 text-green-600" /> : <XCircle className="h-5 w-5 text-red-600" />}
+                            <span className={`font-semibold text-sm ${isCorrect ? 'text-green-700 dark:text-green-300' : 'text-red-700 dark:text-red-300'}`}>
+                                {isCorrect ? 'Correct!' : `Correct Answer: ${question.correctAnswer}`}
+                            </span>
+                        </div>
+                        {result.explanation && (
+                            <p className="text-xs text-muted-foreground leading-relaxed">{result.explanation}</p>
+                        )}
+                        <p className="text-xs text-muted-foreground/60 mt-2">← Tap to go back</p>
+                    </div>
+                )}
+            </motion.div>
+        </div>
+    );
+}
 
 
 const formSchema = z.object({
@@ -688,13 +841,17 @@ export default function PaperGeneratorPage() {
     const score = results ? results.filter(r => r.isCorrect).length : 0;
     const totalQuestions = paper?.paper.questions.length ?? 0;
     const watchedFile = form.watch('file');
+    const mcqCount = form.watch('mcqCount') || 0;
+    const shortCount = form.watch('shortCount') || 0;
+    const longCount = form.watch('longCount') || 0;
 
     if (isLoading) {
         return (
-            <div className="flex flex-col gap-8">
-                <PageHeader title="Exam Paper Generator" description="Create a custom exam paper or let AI generate one based on your progress." />
-                <AiLoadingScreen variant="paper" title="Generating your exam paper..." />
-            </div>
+            <PaperGeneratingAnimation
+                mcqCount={mcqCount}
+                shortCount={shortCount}
+                longCount={longCount}
+            />
         );
     }
 
@@ -1017,7 +1174,7 @@ export default function PaperGeneratorPage() {
                             </Button>
                         )}
                     </CardHeader>
-                    <CardContent className="space-y-8">
+                    <CardContent className="space-y-4">
                         {paper.bookIntro && (
                             <Card className="bg-primary/5 border-primary/20">
                                 <CardHeader>
@@ -1031,68 +1188,43 @@ export default function PaperGeneratorPage() {
                                 </CardContent>
                             </Card>
                         )}
-                        {paper.paper.questions.map((q, i) => (
-                            <div key={q.question} className="space-y-4">
-                                <p className="font-semibold">{i + 1}. {q.question}</p>
-                                {q.type === 'mcq' && q.options && (
-                                    <RadioGroup
-                                        onValueChange={(value) => handleAnswerChange(i, value)}
-                                        value={userAnswers[i]}
+
+                        {/* Animated reveal of questions */}
+                        <AnimatePresence>
+                            {paper.paper.questions.map((q, i) => (
+                                <motion.div
+                                    key={i}
+                                    initial={{ opacity: 0, y: 24 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    transition={{ duration: 0.35, delay: i * 0.08 }}
+                                >
+                                    <QuestionFlipCard
+                                        question={q}
+                                        index={i}
+                                        userAnswer={userAnswers[i]}
+                                        result={results?.[i]}
+                                        onAnswerChange={handleAnswerChange}
                                         disabled={!!results}
-                                    >
-                                        {q.options!.map((option, index) => (
-                                            <div key={index} className="flex items-center space-x-3">
-                                                <RadioGroupItem value={option} id={`q${i}-opt${index}`} />
-                                                <Label htmlFor={`q${i}-opt${index}`} className="font-normal">{option}</Label>
-                                            </div>
-                                        ))}
-                                    </RadioGroup>
-                                )}
-                                {(q.type === 'short' || q.type === 'long') && (
-                                    <Textarea
-                                        placeholder="Your answer..."
-                                        onChange={(e) => handleAnswerChange(i, e.target.value)}
-                                        disabled={!!results}
-                                        rows={q.type === 'short' ? 3 : 6}
                                     />
-                                )}
-                                {results && results[i] && (
-                                    <div className={`mt-4 rounded-md p-4 text-sm ${results[i].isCorrect ? 'bg-green-100 border-green-200 text-green-800' : 'bg-red-100 border-red-200 text-red-800'}`}>
-                                        {results[i].isCorrect ? (
-                                            <div className="flex items-center gap-2">
-                                                <CheckCircle className="h-5 w-5" />
-                                                <strong>Correct!</strong>
-                                            </div>
-                                        ) : (
-                                            <div className="space-y-2">
-                                                <div className="flex items-center gap-2 font-bold">
-                                                    <XCircle className="h-5 w-5" />
-                                                    Incorrect.
-                                                </div>
-                                                <p><strong>Correct Answer:</strong> {q.correctAnswer}</p>
-                                                <p><strong>Explanation:</strong> {results[i].explanation}</p>
-                                            </div>
-                                        )}
-                                    </div>
-                                )}
-                            </div>
-                        ))}
+                                </motion.div>
+                            ))}
+                        </AnimatePresence>
+
                         <div className="flex flex-col sm:flex-row gap-4 pt-6">
                             {!results ? (
-                                <Button onClick={checkAnswers} disabled={isChecking || Object.keys(userAnswers).length !== paper.paper.questions.length} className="w-full sm:w-auto">
+                                <Button
+                                    onClick={checkAnswers}
+                                    disabled={isChecking || Object.keys(userAnswers).length !== paper.paper.questions.length}
+                                    className="w-full sm:w-auto"
+                                >
                                     {isChecking ? (
-                                        <>
-                                            <Loader className="mr-2 h-4 w-4 animate-spin" />
-                                            Checking...
-                                        </>
-                                    ) : (
-                                        'Check Answers'
-                                    )}
+                                        <><Loader className="mr-2 h-4 w-4 animate-spin" />Checking...</>
+                                    ) : 'Submit & Check Answers'}
                                 </Button>
                             ) : (
                                 <>
-                                    <div className="flex-1 rounded-md bg-primary/10 p-4 text-center text-lg font-bold text-primary">
-                                        Your Score: {score} / {totalQuestions}
+                                    <div className="flex-1 rounded-xl bg-primary/10 p-4 text-center text-lg font-bold text-primary">
+                                        Score: {score} / {totalQuestions}
                                     </div>
                                     <Button onClick={downloadResultsPdf} className="w-full sm:w-auto">
                                         <FileDown className="mr-2 h-4 w-4" />

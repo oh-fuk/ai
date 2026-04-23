@@ -35,6 +35,70 @@ const statConfig = [
   { label: "Subjects Mastered", icon: BarChart2, color: "text-violet-400", bg: "bg-violet-400/20" },
 ];
 
+/* ─── Flip feature card ─────────────────────────────────────────────────── */
+function FeatureFlipCard({
+  title, icon: Icon, href, description, isButtonLoading, onClick,
+}: {
+  title: string;
+  icon: React.ComponentType<{ className?: string }>;
+  href: string;
+  description: string;
+  isButtonLoading: boolean;
+  onClick: () => void;
+}) {
+  const [flipped, setFlipped] = useState(false);
+
+  return (
+    <div
+      className="relative h-44 cursor-pointer"
+      style={{ perspective: '1000px' }}
+      onClick={() => setFlipped(f => !f)}
+    >
+      <motion.div
+        animate={{ rotateY: flipped ? 180 : 0 }}
+        transition={{ duration: 0.45, ease: 'easeInOut' }}
+        style={{ transformStyle: 'preserve-3d' }}
+        className="relative w-full h-full"
+      >
+        {/* Front */}
+        <div
+          className="absolute inset-0 rounded-2xl p-5 flex flex-col gap-3 transition-all duration-200 hover:shadow-xl"
+          style={{
+            backfaceVisibility: 'hidden',
+            background: 'rgba(255,255,255,0.09)',
+            backdropFilter: 'blur(18px)',
+            WebkitBackdropFilter: 'blur(18px)',
+            border: '1px solid rgba(255,255,255,0.15)',
+          }}
+        >
+          <div className="flex items-center justify-between">
+            <div className="p-3 rounded-xl bg-primary/10">
+              <Icon className="h-5 w-5 text-primary" />
+            </div>
+            <ArrowRight className="h-4 w-4 text-muted-foreground/40" />
+          </div>
+          <h3 className="font-semibold text-foreground text-[15px] font-headline">{title}</h3>
+          <p className="text-xs text-muted-foreground/60">Tap to see details →</p>
+        </div>
+
+        {/* Back */}
+        <div
+          className="absolute inset-0 rounded-2xl p-5 flex flex-col justify-between bg-primary/10 border border-primary/20"
+          style={{ backfaceVisibility: 'hidden', transform: 'rotateY(180deg)' }}
+        >
+          <p className="text-sm text-foreground/80 leading-relaxed">{description}</p>
+          <button
+            onClick={e => { e.stopPropagation(); onClick(); }}
+            className="mt-2 inline-flex items-center gap-1.5 text-xs font-semibold text-primary bg-primary/10 hover:bg-primary/20 px-3 py-1.5 rounded-full transition-all w-fit"
+          >
+            {isButtonLoading ? <><Loader className="h-3 w-3 animate-spin" /> Opening...</> : <>Open {title} <ArrowRight className="h-3 w-3" /></>}
+          </button>
+        </div>
+      </motion.div>
+    </div>
+  );
+}
+
 /* ─── Animation variants ────────────────────────────────────────────────── */
 const containerVariants = {
   hidden: {},
@@ -197,38 +261,14 @@ export default function DashboardPage() {
             const isButtonLoading = loading === feature.href;
             return (
               <motion.div key={feature.title} variants={itemVariants}>
-                <div
+                <FeatureFlipCard
+                  title={feature.title}
+                  icon={feature.icon}
+                  href={feature.href}
+                  description={feature.description}
+                  isButtonLoading={isButtonLoading}
                   onClick={() => { setLoading(feature.href); router.push(feature.href); }}
-                  className="group cursor-pointer rounded-2xl p-5 flex flex-col gap-4 h-full transition-all duration-200 hover:-translate-y-1 hover:shadow-xl hover:border-primary/30"
-                  style={glassStyle}
-                >
-                  {/* Icon row */}
-                  <div className="flex items-center justify-between">
-                    <div className="p-3 rounded-xl bg-primary/10 group-hover:bg-primary/20 transition-colors duration-200">
-                      <feature.icon className="h-5 w-5 text-primary" />
-                    </div>
-                    <ArrowRight className="h-4 w-4 text-muted-foreground/40 group-hover:text-primary group-hover:translate-x-1 transition-all duration-200" />
-                  </div>
-
-                  {/* Text */}
-                  <div className="flex flex-col gap-1 flex-1">
-                    <h3 className="font-semibold text-foreground text-[15px] font-headline leading-snug">
-                      {feature.title}
-                    </h3>
-                    <p className="text-sm text-muted-foreground leading-relaxed">
-                      {feature.description}
-                    </p>
-                  </div>
-
-                  {/* CTA */}
-                  <div className="text-xs font-semibold text-primary flex items-center gap-1.5">
-                    {isButtonLoading ? (
-                      <><Loader className="h-3.5 w-3.5 animate-spin" /> Opening...</>
-                    ) : (
-                      <>Open {feature.title}</>
-                    )}
-                  </div>
-                </div>
+                />
               </motion.div>
             );
           })}

@@ -14,6 +14,7 @@ import {
   PanelLeftClose, PanelLeftOpen, Search, Sparkles, Bot, User as UserIcon,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { useNotification } from '@/context/notification-context';
 import { generateChatResponse } from '@/ai/flows/generate-chat-response';
 import { generateChatTitle } from '@/ai/flows/generate-chat-title';
 import { generateQuizFromChat } from '@/ai/flows/generate-quiz-from-chat';
@@ -186,15 +187,11 @@ function ChatMessageItem({ message, isLoading }: { message: Partial<ChatMessage>
           isUser ? (
             <div className="whitespace-pre-wrap break-words">{message.content}</div>
           ) : (
-            <ReactMarkdown
-              remarkPlugins={[remarkGfm]}
-              className="prose prose-sm dark:prose-invert max-w-none break-words
-                prose-p:my-1 prose-headings:my-2 prose-ul:my-1 prose-ol:my-1
-                prose-li:my-0.5 prose-code:bg-muted prose-code:px-1 prose-code:rounded
-                prose-pre:bg-muted prose-pre:p-3 prose-pre:rounded-lg"
-            >
-              {message.content || ''}
-            </ReactMarkdown>
+            <div className="prose prose-sm dark:prose-invert max-w-none break-words prose-p:my-1 prose-headings:my-2 prose-ul:my-1 prose-ol:my-1 prose-li:my-0.5 prose-code:bg-muted prose-code:px-1 prose-code:rounded prose-pre:bg-muted prose-pre:p-3 prose-pre:rounded-lg">
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                {message.content || ''}
+              </ReactMarkdown>
+            </div>
           )
         )}
         {!isLoading && !isUser && message.content && (
