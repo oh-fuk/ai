@@ -12,11 +12,10 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import PageHeader from '@/components/app/page-header';
-import { Loader, Plus, Trash, Sun, Moon, Zap, AlertTriangle, UploadCloud, File as FileIcon, BookOpen } from 'lucide-react';
+import { Loader, Plus, Trash, Sun, Moon, Zap, AlertTriangle, BookOpen } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { useUser, useDoc, useFirestore, useMemoFirebase, useCollection, deleteDocumentNonBlocking, setDocumentNonBlocking, useAuth, useStorage, updateDocumentNonBlocking } from '@/firebase';
+import { useUser, useDoc, useFirestore, useMemoFirebase, useCollection, deleteDocumentNonBlocking, setDocumentNonBlocking, useAuth } from '@/firebase';
 import { doc, collection, setDoc, serverTimestamp, updateDoc } from 'firebase/firestore';
-import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from '@/components/ui/form';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
@@ -44,7 +43,6 @@ export default function SettingsPage() {
   const { user, isUserLoading } = useUser();
   const firestore = useFirestore();
   const auth = useAuth();
-  const storage = useStorage();
   const router = useRouter();
   const { theme, setTheme } = useTheme();
 

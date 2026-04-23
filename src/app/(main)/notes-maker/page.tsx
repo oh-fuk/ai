@@ -31,7 +31,7 @@ import { useRouter } from 'next/navigation';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 
-const MAX_FILE_SIZE = 50 * 1024 * 1024 * 1024; // 50MB
+const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
 
 const formSchema = z.object({
     subject: z.string().min(1, 'Please select a subject.'),
@@ -413,21 +413,14 @@ const formatNotesForPdf = (notes: string, meta: { reportTitle?: string; subject?
 };
 
 const formatNotesForDisplay = (notes: string) => {
-    // Extract code blocks first (from original notes) so we can preserve them verbatim
-    const codeBlocks: Record<string, string> = {};
-    let idx = 0;
-    const codeBlockRegex = /```(\w*)\n([\s\S]*?)```/g;
-    let match;
-    const raw = notes;
-    while ((match = codeBlockRegex.exec(raw)) !== null) {
-        const id = `__CODEBLOCK_${idx++}__`;
-        codeBlocks[id] = { lang: match[1] || '', code: match[2] } as any;
-    }
-
-    // Escape HTML
     const escapeHtml = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-    let temp = raw.replace(codeBlockRegex, (_m, _lang, _code) => {
-        const id = `__CODEBLOCK_${Object.keys(codeBlocks).length > 0 ? Object.keys(codeBlocks).length : idx}__`;
+
+    // Extract code blocks and replace with stable placeholders
+    const codeBlockMap = new Map<string, { lang: string; code: string }>();
+    let idx = 0;
+    let temp = notes.replace(/```(\w*)\n([\s\S]*?)```/g, (_m, lang, code) => {
+        const id = `__CODEBLOCK_${idx++}__`;
+        codeBlockMap.set(id, { lang: lang || '', code });
         return id;
     });
 
@@ -559,15 +552,13 @@ const formatNotesForDisplay = (notes: string) => {
     if (inList) html += '</ul>';
     if (inNumberedList) html += '</ol>';
 
-    // Restore code blocks
+    // Restore code blocks from map
     let finalHtml = html;
-    finalHtml = finalHtml.replace(/__CODEBLOCK_\d+__/g, () => {
-        const m = codeBlockRegex.exec(raw);
-        if (!m) return '';
-        const lang = m[1] || '';
-        const code = m[2] || '';
-        const escapedCode = escapeHtml(code);
-        return `<pre style="background:linear-gradient(135deg, #1e293b 0%, #0f172a 100%);color:#e2e8f0;padding:1.25rem;border-radius:0.75rem;overflow-x:auto;font-size:0.875rem;line-height:1.6;margin:1rem 0;border:1px solid #334155;box-shadow:0 4px 12px rgba(0,0,0,0.3);"><code class="language-${lang}" style="font-family:'Courier New',monospace;">${escapedCode}</code></pre>`;
+    finalHtml = finalHtml.replace(/__CODEBLOCK_(\d+)__/g, (_m, n) => {
+        const entry = codeBlockMap.get(`__CODEBLOCK_${n}__`);
+        if (!entry) return '';
+        const escapedCode = escapeHtml(entry.code.trim());
+        return `<pre style="background:linear-gradient(135deg, #1e293b 0%, #0f172a 100%);color:#e2e8f0;padding:1.25rem;border-radius:0.75rem;overflow-x:auto;font-size:0.875rem;line-height:1.6;margin:1rem 0;border:1px solid #334155;box-shadow:0 4px 12px rgba(0,0,0,0.3);"><code class="language-${entry.lang}" style="font-family:'Courier New',monospace;">${escapedCode}</code></pre>`;
     });
 
     return finalHtml;

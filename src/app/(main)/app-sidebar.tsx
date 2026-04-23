@@ -8,15 +8,20 @@ import {
 } from "lucide-react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
-import {
-  SidebarContent, SidebarHeader, SidebarMenu, SidebarMenuItem,
-  SidebarMenuButton, SidebarFooter,
-} from "@/components/ui/sidebar";
+import { SidebarContent, SidebarHeader, SidebarFooter } from "@/components/ui/sidebar";
 import { useNotification } from "@/context/notification-context";
 import { memo, useState } from "react";
 import { AthenaLogo } from "@/components/app/logo";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+
+type NavIcon = React.ComponentType<{ className?: string }>;
 
 /* ─── Nav data ─────────────────────────────────────────────────────────── */
 
@@ -54,9 +59,77 @@ const toolItems: { href: string; label: string; icon: NavIcon; notificationKey?:
   { href: "/history", label: "History", icon: History, notificationKey: "history" },
 ];
 
-/* ─── Collapsible group ─────────────────────────────────────────────────── */
+/* ─── Tooltip wrapper (only active when collapsed) ──────────────────────── */
 
-type NavIcon = React.ComponentType<{ className?: string }>;
+function NavTooltip({ label, collapsed, children }: { label: string; collapsed: boolean; children: React.ReactNode }) {
+  if (!collapsed) return <>{children}</>;
+  return (
+    <Tooltip delayDuration={100}>
+      <TooltipTrigger asChild>{children}</TooltipTrigger>
+      <TooltipContent side="right" className="font-medium">{label}</TooltipContent>
+    </Tooltip>
+  );
+}
+
+/* ─── Single nav item ───────────────────────────────────────────────────── */
+
+function NavItem({
+  item,
+  pathname,
+  indent = false,
+  notificationKey,
+  collapsed,
+}: {
+  item: { href: string; label: string; icon: NavIcon };
+  pathname: string;
+  indent?: boolean;
+  notificationKey?: string;
+  collapsed: boolean;
+}) {
+  const { notifications } = useNotification();
+  const isActive = pathname === item.href || (!indent && pathname.startsWith(item.href + "/"));
+
+  return (
+    <NavTooltip label={item.label} collapsed={collapsed}>
+      <Link
+        href={item.href}
+        className={cn(
+          "group flex items-center gap-2.5 rounded-lg text-sm font-medium transition-all duration-150 relative",
+          collapsed ? "justify-center px-0 py-2.5 mx-1" : "px-3 py-2",
+          indent && !collapsed ? "py-1.5" : "",
+          isActive
+            ? "bg-sidebar-accent text-sidebar-primary shadow-sm"
+            : "text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/60"
+        )}
+      >
+        {isActive && !collapsed && (
+          <span className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 bg-sidebar-primary rounded-r-full" />
+        )}
+        <item.icon className={cn(
+          "flex-shrink-0 transition-all duration-150",
+          collapsed ? "h-5 w-5" : "h-4 w-4",
+          isActive ? "text-sidebar-primary" : "text-sidebar-foreground/50 group-hover:text-sidebar-foreground/80"
+        )} />
+        {!collapsed && <span className="flex-1 truncate">{item.label}</span>}
+        {!collapsed && notificationKey && (notifications as any)[notificationKey] && (
+          <span className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />
+        )}
+        {collapsed && notificationKey && (notifications as any)[notificationKey] && (
+          <span className="absolute top-1.5 right-1.5 h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />
+        )}
+      </Link>
+    </NavTooltip>
+  );
+}
+
+/* ─── Section label ─────────────────────────────────────────────────────── */
+
+function SectionLabel({ children, collapsed }: { children: React.ReactNode; collapsed: boolean }) {
+  if (collapsed) return <div className="my-1 mx-2 border-t border-sidebar-border/50" />;
+  return <p className="section-label mt-3 mb-0.5">{children}</p>;
+}
+
+/* ─── Collapsible group ─────────────────────────────────────────────────── */
 
 function NavGroup({
   label,
@@ -64,15 +137,28 @@ function NavGroup({
   href,
   items,
   pathname,
+  collapsed,
 }: {
   label: string;
   icon: NavIcon;
   href: string;
   items: { href: string; label: string; icon: NavIcon }[];
   pathname: string;
+  collapsed: boolean;
 }) {
   const isGroupActive = pathname.startsWith(href) || items.some(i => pathname.startsWith(i.href));
   const [open, setOpen] = useState(isGroupActive);
+
+  // Collapsed mode: show all child items as icon-only
+  if (collapsed) {
+    return (
+      <div className="space-y-0.5">
+        {items.map(item => (
+          <NavItem key={item.href} item={item} pathname={pathname} indent collapsed={collapsed} />
+        ))}
+      </div>
+    );
+  }
 
   return (
     <div>
@@ -100,7 +186,7 @@ function NavGroup({
           >
             <div className="ml-3 mt-0.5 pl-3 border-l border-sidebar-border space-y-0.5 py-1">
               {items.map(item => (
-                <NavItem key={item.href} item={item} pathname={pathname} indent />
+                <NavItem key={item.href} item={item} pathname={pathname} indent collapsed={collapsed} />
               ))}
             </div>
           </motion.div>
@@ -110,104 +196,62 @@ function NavGroup({
   );
 }
 
-/* ─── Single nav item ───────────────────────────────────────────────────── */
-
-function NavItem({
-  item,
-  pathname,
-  indent = false,
-  notificationKey,
-}: {
-  item: { href: string; label: string; icon: NavIcon };
-  pathname: string;
-  indent?: boolean;
-  notificationKey?: string;
-}) {
-  const { notifications } = useNotification();
-  const isActive = pathname === item.href || (!indent && pathname.startsWith(item.href + "/"));
-
-  return (
-    <Link
-      href={item.href}
-      className={cn(
-        "group flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-150 relative",
-        indent ? "py-1.5" : "",
-        isActive
-          ? "bg-sidebar-accent text-sidebar-primary shadow-sm"
-          : "text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/60"
-      )}
-    >
-      {isActive && (
-        <span className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 bg-sidebar-primary rounded-r-full" />
-      )}
-      <item.icon className={cn("h-4 w-4 flex-shrink-0", isActive ? "text-sidebar-primary" : "text-sidebar-foreground/50 group-hover:text-sidebar-foreground/80")} />
-      <span className="flex-1 truncate">{item.label}</span>
-      {notificationKey && (notifications as any)[notificationKey] && (
-        <span className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />
-      )}
-    </Link>
-  );
-}
-
-/* ─── Section label ─────────────────────────────────────────────────────── */
-
-function SectionLabel({ children }: { children: React.ReactNode }) {
-  return (
-    <p className="section-label mt-3 mb-0.5">{children}</p>
-  );
-}
-
 /* ─── Main sidebar ──────────────────────────────────────────────────────── */
 
-const AppSidebar = memo(function AppSidebar() {
+const AppSidebar = memo(function AppSidebar({ collapsed = false }: { collapsed?: boolean }) {
   const pathname = usePathname();
 
   return (
-    <div className="flex flex-col h-full bg-sidebar">
-      {/* Logo */}
-      <SidebarHeader className="flex-shrink-0 px-4 py-4 border-b border-sidebar-border">
-        <Link href="/dashboard" className="flex items-center gap-3 group">
-          <AthenaLogo className="h-9 w-9 ring-2 ring-sidebar-border group-hover:ring-sidebar-primary/40 transition-all duration-200" />
-          <div className="flex flex-col leading-none">
-            <span className="font-headline text-base font-bold text-sidebar-foreground">AthenaAI</span>
-            <span className="text-[11px] text-sidebar-foreground/50 font-medium tracking-wide">Study Buddy</span>
+    <TooltipProvider>
+      <div className="flex flex-col h-full bg-sidebar w-full">
+
+        {/* Logo */}
+        <SidebarHeader className={cn(
+          "flex-shrink-0 py-4 border-b border-sidebar-border transition-all duration-300",
+          collapsed ? "px-0 flex justify-center" : "px-4"
+        )}>
+          <Link href="/dashboard" className="flex items-center gap-3 group">
+            <NavTooltip label="AthenaAI" collapsed={collapsed}>
+              <AthenaLogo className="h-9 w-9 flex-shrink-0 ring-2 ring-sidebar-border group-hover:ring-sidebar-primary/40 transition-all duration-200" />
+            </NavTooltip>
+            {!collapsed && (
+              <div className="flex flex-col leading-none overflow-hidden">
+                <span className="font-headline text-base font-bold text-sidebar-foreground">AthenaAI</span>
+                <span className="text-[11px] text-sidebar-foreground/50 font-medium tracking-wide">Study Buddy</span>
+              </div>
+            )}
+          </Link>
+        </SidebarHeader>
+
+        {/* Nav */}
+        <SidebarContent className="flex-1 overflow-y-auto scrollbar-hide py-2 px-1">
+          <div className="space-y-0.5">
+            {mainItems.map(item => (
+              <NavItem key={item.href} item={item} pathname={pathname} notificationKey={item.notificationKey} collapsed={collapsed} />
+            ))}
+
+            <SectionLabel collapsed={collapsed}>Generate</SectionLabel>
+            <NavGroup label="Generator Tools" icon={Sparkles} href="/generator" items={generatorItems} pathname={pathname} collapsed={collapsed} />
+
+            <SectionLabel collapsed={collapsed}>Analyze</SectionLabel>
+            <NavGroup label="Analysis Tools" icon={Sigma} href="/analyzer" items={analysisItems} pathname={pathname} collapsed={collapsed} />
+
+            <SectionLabel collapsed={collapsed}>Write</SectionLabel>
+            <NavGroup label="Writing Tools" icon={PenSquare} href="/writing" items={writingItems} pathname={pathname} collapsed={collapsed} />
+
+            <SectionLabel collapsed={collapsed}>Tools</SectionLabel>
+            {toolItems.map(item => (
+              <NavItem key={item.href} item={item} pathname={pathname} notificationKey={item.notificationKey} collapsed={collapsed} />
+            ))}
           </div>
-        </Link>
-      </SidebarHeader>
+        </SidebarContent>
 
-      {/* Nav */}
-      <SidebarContent className="flex-1 overflow-y-auto scrollbar-hide px-2 py-2">
-        <div className="space-y-0.5">
-          {/* Main */}
-          {mainItems.map(item => (
-            <NavItem key={item.href} item={item} pathname={pathname} notificationKey={item.notificationKey} />
-          ))}
-
-          {/* Generator */}
-          <SectionLabel>Generate</SectionLabel>
-          <NavGroup label="Generator Tools" icon={Sparkles} href="/generator" items={generatorItems} pathname={pathname} />
-
-          {/* Analysis */}
-          <SectionLabel>Analyze</SectionLabel>
-          <NavGroup label="Analysis Tools" icon={Sigma} href="/analyzer" items={analysisItems} pathname={pathname} />
-
-          {/* Writing */}
-          <SectionLabel>Write</SectionLabel>
-          <NavGroup label="Writing Tools" icon={PenSquare} href="/writing" items={writingItems} pathname={pathname} />
-
-          {/* Tools */}
-          <SectionLabel>Tools</SectionLabel>
-          {toolItems.map(item => (
-            <NavItem key={item.href} item={item} pathname={pathname} notificationKey={item.notificationKey} />
-          ))}
-        </div>
-      </SidebarContent>
-
-      {/* Footer */}
-      <SidebarFooter className="flex-shrink-0 px-2 py-2 border-t border-sidebar-border">
-        <NavItem item={{ href: "/settings", label: "Settings", icon: Settings }} pathname={pathname} />
-      </SidebarFooter>
-    </div>
+        {/* Footer */}
+        <SidebarFooter className="flex-shrink-0 px-1 py-2 border-t border-sidebar-border">
+          <NavItem item={{ href: "/settings", label: "Settings", icon: Settings }} pathname={pathname} collapsed={collapsed} />
+        </SidebarFooter>
+      </div>
+    </TooltipProvider>
   );
 });
 

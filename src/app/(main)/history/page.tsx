@@ -14,7 +14,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHeader, TableHead, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { useRouter } from 'next/navigation';
-import { generateQuizFromTopic } from '@/ai/flows/generate-quiz-from-topic';
 import { generatePaperFromPrompt } from '@/ai/flows/generate-paper-from-prompt';
 import { generateStudyPlan } from '@/ai/flows/generate-study-plan';
 import { useToast } from '@/hooks/use-toast';
@@ -213,27 +212,25 @@ export default function HistoryPage() {
         doc.save('full-history-report.pdf');
     };
 
-    const downloadSpecificQuizPdf = async (attempt: QuizAttempt) => {
+    const downloadSpecificQuizPdf = (attempt: QuizAttempt) => {
         const doc = new jsPDF();
         const reportTitle = `Quiz: ${attempt.quizName}`;
-        try {
-            const result = await generateQuizFromTopic({ topic: attempt.quizName, numberOfQuestions: attempt.totalQuestions });
-            const quiz = JSON.parse(result.quiz);
-            const questions = quiz.questions.map((q: any, i: number) => `Q${i + 1}: ${q.question}\n\nOptions:\n${q.options.map((opt: string) => `- ${opt}`).join('\n')}\n\nCorrect Answer: ${q.correctAnswer}`);
 
+        (doc as any).autoTable({
+            head: [['Quiz Name', 'Subject', 'Score', 'Date']],
+            body: [[
+                attempt.quizName,
+                attempt.subjectId,
+                `${attempt.score} / ${attempt.totalQuestions} (${((attempt.score / attempt.totalQuestions) * 100).toFixed(1)}%)`,
+                new Date(attempt.attemptedAt.seconds * 1000).toLocaleDateString(),
+            ]],
+            startY: 60,
+            didDrawPage: (data: any) => addHeaderFooter(doc, reportTitle),
+            margin: { top: 60 },
+        });
 
-            (doc as any).autoTable({
-                head: [[`Quiz on ${attempt.quizName}`]],
-                body: questions.map((q: string) => [q]),
-                startY: 60,
-                didDrawPage: (data: any) => addHeaderFooter(doc, reportTitle),
-            });
-
-            addHeaderFooter(doc, reportTitle);
-            doc.save(`${attempt.quizName.replace(/\s+/g, '_')}-quiz.pdf`);
-        } catch (e) {
-            console.error(e);
-        }
+        addHeaderFooter(doc, reportTitle);
+        doc.save(`${attempt.quizName.replace(/\s+/g, '_')}-result.pdf`);
     }
 
     const downloadSpecificPaperPdf = async (paper: PaperResult) => {

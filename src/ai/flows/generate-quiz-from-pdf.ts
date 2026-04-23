@@ -40,7 +40,7 @@ export async function generateQuizFromPdf(input: GenerateQuizFromPdfInput): Prom
 
 const prompt = ai.definePrompt({
   name: 'generateQuizFromPdfPrompt',
-  model: 'googleai/gemini-1.5-flash-002',
+  model: 'googleai/gemini-2.5-flash',
   input: { schema: GenerateQuizFromPdfInputSchema },
   output: { schema: GenerateQuizFromPdfOutputSchema },
   prompt: `You are a quiz generator. Given a PDF document and a topic, generate a quiz with the specified number of questions.

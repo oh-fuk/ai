@@ -25,54 +25,24 @@ module.exports = {
     },
     images: {
         remotePatterns: [
-            {
-                protocol: 'https',
-                hostname: 'tse3.mm.bing.net',
-            },
-            {
-                protocol: 'https',
-                hostname: 'tse1.mm.bing.net',
-            },
-            {
-                protocol: 'https',
-                hostname: 'tse2.mm.bing.net',
-            },
-            {
-                protocol: 'https',
-                hostname: 'tse4.mm.bing.net',
-            },
-            {
-                protocol: 'https',
-                hostname: 'images.unsplash.com',
-            },
-            {
-                protocol: 'https',
-                hostname: 'th.bing.com',
-            },
-            {
-                protocol: 'https',
-                hostname: 'cdn-thumbnails.huggingface.co',
-            },
-            {
-                protocol: 'https',
-                hostname: 'lh3.googleusercontent.com',
-            },
-            {
-                protocol: 'https',
-                hostname: 'avatars.githubusercontent.com',
-            },
-            {
-                protocol: 'https',
-                hostname: 'www.eklavvya.com',
-            },
-            {
-                protocol: 'https',
-                hostname: 'firebasestorage.googleapis.com',
-            },
-            {
-                protocol: 'https',
-                hostname: 'www.primaryworks.co.uk',
-            },
+            { protocol: 'https', hostname: 'tse3.mm.bing.net' },
+            { protocol: 'https', hostname: 'tse1.mm.bing.net' },
+            { protocol: 'https', hostname: 'tse2.mm.bing.net' },
+            { protocol: 'https', hostname: 'tse4.mm.bing.net' },
+            { protocol: 'https', hostname: 'images.unsplash.com' },
+            { protocol: 'https', hostname: 'th.bing.com' },
+            { protocol: 'https', hostname: 'cdn-thumbnails.huggingface.co' },
+            { protocol: 'https', hostname: 'lh3.googleusercontent.com' },
+            { protocol: 'https', hostname: 'avatars.githubusercontent.com' },
+            { protocol: 'https', hostname: 'www.eklavvya.com' },
+            { protocol: 'https', hostname: 'firebasestorage.googleapis.com' },
+            { protocol: 'https', hostname: 'www.primaryworks.co.uk' },
+            // From next.config.ts (were being ignored)
+            { protocol: 'https', hostname: 'placehold.co' },
+            { protocol: 'https', hostname: 'picsum.photos' },
+            { protocol: 'https', hostname: 'www.instagram.com' },
+            { protocol: 'http', hostname: 'imcb.edu.pk' },
+            { protocol: 'https', hostname: 'cdn.pixabay.com' },
         ],
     },
     experimental: {
