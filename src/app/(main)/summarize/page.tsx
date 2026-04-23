@@ -252,18 +252,20 @@ export default function SummarizePage() {
                             <span>Paste text or upload a file to get started.</span>
                             {driveConnected && (
                                 <Button type="button" variant="outline" size="sm" className="gap-1.5 text-xs"
-                                    onClick={() => openPicker(async (file) => {
+                                    onClick={() => openPicker(async (driveFile) => {
                                         try {
-                                            const dataUri = await downloadFile(file.id, file.mimeType);
-                                            // Create a fake FileList-like object
+                                            const dataUri = await downloadFile(driveFile.id, driveFile.mimeType);
                                             const res = await fetch(dataUri);
                                             const blob = await res.blob();
-                                            const f = new File([blob], file.name, { type: blob.type });
-                                            const dt = new DataTransfer();
+                                            // Use globalThis to avoid TS DOM type issues in server build
+                                            const FileConstructor = (globalThis as any).File as typeof File;
+                                            const DataTransferConstructor = (globalThis as any).DataTransfer as typeof DataTransfer;
+                                            const f = new FileConstructor([blob], driveFile.name, { type: blob.type });
+                                            const dt = new DataTransferConstructor();
                                             dt.items.add(f);
                                             form.setValue('file', dt.files);
-                                            setSummarySource(`from Drive: "${file.name}"`);
-                                            toast({ title: `Imported: ${file.name}` });
+                                            setSummarySource(`from Drive: "${driveFile.name}"`);
+                                            toast({ title: `Imported: ${driveFile.name}` });
                                         } catch (e: any) {
                                             toast({ variant: 'destructive', title: 'Import failed', description: e.message });
                                         }
