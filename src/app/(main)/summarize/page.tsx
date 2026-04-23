@@ -2,7 +2,7 @@
 
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -71,7 +71,6 @@ export default function SummarizePage() {
     const { connected: driveConnected, openPicker, downloadFile, uploadFile } = useDrive();
     const [savingToDrive, setSavingToDrive] = useState(false);
 
-
     const subjectsQuery = useMemoFirebase(
         () => (user && firestore ? collection(firestore, 'users', user.uid, 'subjects') : null),
         [user, firestore]
@@ -94,6 +93,19 @@ export default function SummarizePage() {
         },
     });
 
+    const handleImportFromDrive = useCallback(() => {
+        openPicker(async (driveFile) => {
+            try {
+                const dataUri = await downloadFile(driveFile.id, driveFile.mimeType);
+                form.setValue('file', { __driveImport: true, dataUri, name: driveFile.name, type: driveFile.mimeType } as any);
+                setSummarySource(`from Drive: "${driveFile.name}"`);
+                toast({ title: `Imported: ${driveFile.name}` });
+            } catch (e: any) {
+                toast({ variant: 'destructive', title: 'Import failed', description: e.message });
+            }
+        });
+    }, [openPicker, downloadFile, form, toast]);
+
     const toBase64 = (file: File) => new Promise<string>((resolve, reject) => {
         const reader = new FileReader();
         reader.readAsDataURL(file);
@@ -113,14 +125,19 @@ export default function SummarizePage() {
             let sourceType: 'PDF' | 'Text' | 'Image' = 'Text';
             let sourceContent = data.text || '';
 
-            if (data.file && data.file[0]) {
-                const file = data.file[0];
-                const fileDataUri = await toBase64(file);
+            if (data.file && (data.file[0] || data.file.__driveImport)) {
+                // Handle Drive import (stored as plain object) or normal file upload
+                const isDriveImport = data.file.__driveImport === true;
+                const fileName: string = isDriveImport ? data.file.name : data.file[0].name;
+                const fileMimeType: string = isDriveImport ? data.file.type : data.file[0].type;
+                const fileDataUri: string = isDriveImport
+                    ? data.file.dataUri
+                    : await toBase64(data.file[0]);
 
-                if (file.type.startsWith('image/')) {
+                if (fileMimeType.startsWith('image/')) {
                     sourceType = 'Image';
-                    sourceContent = file.name;
-                    setSummarySource(`from your uploaded image, "${file.name}"`);
+                    sourceContent = fileName;
+                    setSummarySource(`from your uploaded image, "${fileName}"`);
                     const imageTextResult = await extractTextFromImage({ imageDataUri: fileDataUri, subject: data.subject });
                     if (!imageTextResult.isRelated || !imageTextResult.extractedText) {
                         toast({ variant: 'destructive', title: 'Image Analysis Failed', description: imageTextResult.reasoning || 'Could not extract relevant text from image.' });
@@ -128,11 +145,11 @@ export default function SummarizePage() {
                         return;
                     }
                     textForSummary = imageTextResult.extractedText;
-                } else if (file.type === 'application/pdf') {
+                } else if (fileMimeType === 'application/pdf' || fileMimeType === 'application/vnd.google-apps.document') {
                     sourceType = 'PDF';
-                    sourceContent = file.name;
+                    sourceContent = fileName;
                     pdfDataUri = fileDataUri;
-                    setSummarySource(`from your uploaded PDF, "${file.name}"`);
+                    setSummarySource(`from your uploaded PDF, "${fileName}"`);
                 } else {
                     toast({ variant: 'destructive', title: 'Unsupported File Type', description: 'Please upload a PDF or an image file.' });
                     setIsLoading(false);
@@ -252,24 +269,7 @@ export default function SummarizePage() {
                             <span>Paste text or upload a file to get started.</span>
                             {driveConnected && (
                                 <Button type="button" variant="outline" size="sm" className="gap-1.5 text-xs"
-                                    onClick={() => openPicker(async (driveFile) => {
-                                        try {
-                                            const dataUri = await downloadFile(driveFile.id, driveFile.mimeType);
-                                            const res = await fetch(dataUri);
-                                            const blob = await res.blob();
-                                            // Use globalThis to avoid TS DOM type issues in server build
-                                            const FileConstructor = (globalThis as any).File as typeof File;
-                                            const DataTransferConstructor = (globalThis as any).DataTransfer as typeof DataTransfer;
-                                            const f = new FileConstructor([blob], driveFile.name, { type: blob.type });
-                                            const dt = new DataTransferConstructor();
-                                            dt.items.add(f);
-                                            form.setValue('file', dt.files);
-                                            setSummarySource(`from Drive: "${driveFile.name}"`);
-                                            toast({ title: `Imported: ${driveFile.name}` });
-                                        } catch (e: any) {
-                                            toast({ variant: 'destructive', title: 'Import failed', description: e.message });
-                                        }
-                                    })}
+                                    onClick={handleImportFromDrive}
                                 >
                                     <HardDrive className="h-3.5 w-3.5" /> Import from Drive
                                 </Button>
