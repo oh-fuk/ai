@@ -18,9 +18,10 @@ import { generateChatResponse } from '@/ai/flows/generate-chat-response';
 import { generateChatTitle } from '@/ai/flows/generate-chat-title';
 import { generateQuizFromChat } from '@/ai/flows/generate-quiz-from-chat';
 import { generatePaperFromPrompt } from '@/ai/flows/generate-paper-from-prompt';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { TypingDots } from '@/components/app/ai-loading';
 import { cn } from '@/lib/utils';
-import { useNotification } from '@/context/notification-context';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader,
@@ -182,7 +183,19 @@ function ChatMessageItem({ message, isLoading }: { message: Partial<ChatMessage>
       </div>
       <div className={cn("max-w-[75%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed", isUser ? "bg-primary text-primary-foreground rounded-tr-sm" : "bg-muted text-foreground rounded-tl-sm")}>
         {isLoading ? <TypingDots /> : (
-          <div className="whitespace-pre-wrap break-words">{message.content}</div>
+          isUser ? (
+            <div className="whitespace-pre-wrap break-words">{message.content}</div>
+          ) : (
+            <ReactMarkdown
+              remarkPlugins={[remarkGfm]}
+              className="prose prose-sm dark:prose-invert max-w-none break-words
+                prose-p:my-1 prose-headings:my-2 prose-ul:my-1 prose-ol:my-1
+                prose-li:my-0.5 prose-code:bg-muted prose-code:px-1 prose-code:rounded
+                prose-pre:bg-muted prose-pre:p-3 prose-pre:rounded-lg"
+            >
+              {message.content || ''}
+            </ReactMarkdown>
+          )
         )}
         {!isLoading && !isUser && message.content && (
           <button onClick={handleCopy} className="mt-1 opacity-0 group-hover:opacity-60 hover:!opacity-100 transition-opacity">

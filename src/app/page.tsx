@@ -11,7 +11,6 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { AthenaLogo } from "@/components/app/logo";
-import schoolLogo from "@/LOGO/college.png";
 import Image from "next/image";
 
 // 3D scene — client only, no SSR (fixes React 19 + three.js crash)
@@ -53,28 +52,56 @@ function BackgroundMusic() {
   );
 }
 
-/* ─── Feature Card ───────────────────────────────────────────────────────── */
-function FeatureCard({ icon: Icon, title, description, delay, color }: {
-  icon: React.ComponentType<{ className?: string }>; title: string; description: string; delay: number; color: string;
+/* ─── Flip Card ─────────────────────────────────────────────────────────── */
+function FeatureCard({ icon: Icon, title, description, delay, color, href }: {
+  icon: React.ComponentType<{ className?: string }>; title: string; description: string;
+  delay: number; color: string; href?: string;
 }) {
+  const [flipped, setFlipped] = useState(false);
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 50 }} whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true }} transition={{ duration: 0.5, delay }}
-      whileHover={{ y: -8, scale: 1.02 }} className="relative group"
+      className="relative h-48 cursor-pointer"
+      style={{ perspective: '1000px' }}
+      onClick={() => setFlipped(f => !f)}
     >
-      <div className={`absolute inset-0 bg-gradient-to-r ${color} rounded-2xl blur-xl opacity-0 group-hover:opacity-30 transition-opacity duration-500`} />
-      <div className="relative bg-white/5 backdrop-blur-lg border border-white/10 rounded-2xl p-6 h-full hover:border-white/30 transition-all duration-300 overflow-hidden">
-        <div className={`w-12 h-12 rounded-xl bg-gradient-to-r ${color} flex items-center justify-center mb-4`}>
-          <Icon className="w-6 h-6 text-white" />
+      <motion.div
+        animate={{ rotateY: flipped ? 180 : 0 }}
+        transition={{ duration: 0.5, ease: 'easeInOut' }}
+        style={{ transformStyle: 'preserve-3d' }}
+        className="relative w-full h-full"
+      >
+        {/* Front */}
+        <div
+          className="absolute inset-0 bg-white/5 backdrop-blur-lg border border-white/10 rounded-2xl p-6 flex flex-col gap-3 hover:border-white/30 transition-all duration-300"
+          style={{ backfaceVisibility: 'hidden' }}
+        >
+          <div className={`w-12 h-12 rounded-xl bg-gradient-to-r ${color} flex items-center justify-center`}>
+            <Icon className="w-6 h-6 text-white" />
+          </div>
+          <h3 className="text-lg font-bold text-white">{title}</h3>
+          <p className="text-gray-400 text-xs">Tap to learn more →</p>
         </div>
-        <h3 className="text-lg font-bold text-white mb-2">{title}</h3>
-        <p className="text-gray-400 text-sm leading-relaxed">{description}</p>
-        <motion.div
-          className="absolute bottom-0 left-0 h-0.5 bg-gradient-to-r from-transparent via-cyan-400/60 to-transparent"
-          initial={{ width: "0%" }} whileHover={{ width: "100%" }} transition={{ duration: 0.4 }}
-        />
-      </div>
+
+        {/* Back */}
+        <div
+          className={`absolute inset-0 bg-gradient-to-br ${color} rounded-2xl p-6 flex flex-col justify-between`}
+          style={{ backfaceVisibility: 'hidden', transform: 'rotateY(180deg)' }}
+        >
+          <p className="text-white text-sm leading-relaxed">{description}</p>
+          {href && (
+            <Link
+              href={href}
+              onClick={e => e.stopPropagation()}
+              className="mt-3 inline-flex items-center gap-1.5 text-xs font-semibold text-white bg-white/20 hover:bg-white/30 px-3 py-1.5 rounded-full transition-all w-fit"
+            >
+              Open <ChevronRight className="w-3 h-3" />
+            </Link>
+          )}
+        </div>
+      </motion.div>
     </motion.div>
   );
 }
@@ -90,19 +117,19 @@ export default function LandingPage() {
     return () => window.removeEventListener("scroll", fn);
   }, []);
 
-  const features: { icon: React.ComponentType<{ className?: string }>; title: string; description: string; color: string }[] = [
-    { icon: MessageCircle, title: "AI Chat", description: "Context-aware AI advisor that knows your study patterns and history.", color: "from-purple-500 to-pink-500" },
-    { icon: Brain, title: "Quiz Generator", description: "Auto-generate quizzes from topics, PDFs, or your weakest subjects.", color: "from-blue-500 to-cyan-500" },
-    { icon: FileText, title: "Paper Generator", description: "Full practice exam papers with MCQs, short & long questions.", color: "from-green-500 to-emerald-500" },
-    { icon: Clock, title: "Pomodoro Timer", description: "Stay focused with customizable Pomodoro study sessions.", color: "from-orange-500 to-red-500" },
-    { icon: Music, title: "Study Music", description: "Curated lo-fi and ambient music for deep focus.", color: "from-pink-500 to-rose-500" },
-    { icon: FileSearch, title: "AI Summarizer", description: "Condense long documents into concise, easy-to-digest summaries.", color: "from-indigo-500 to-purple-500" },
-    { icon: PenTool, title: "Writing Assistant", description: "AI helps with essays, emails, letters & applications.", color: "from-yellow-500 to-orange-500" },
-    { icon: Calendar, title: "Study Planner", description: "AI-generated personalized study schedules from your syllabus.", color: "from-teal-500 to-cyan-500" },
-    { icon: BarChart3, title: "Progress Tracker", description: "Visualize your academic growth with detailed charts.", color: "from-blue-600 to-indigo-600" },
-    { icon: FileCheck, title: "Guess Paper", description: "Analyze past papers to predict future exam questions.", color: "from-red-500 to-pink-500" },
-    { icon: BookCopy, title: "Notes Maker", description: "Generate structured student-style notes from any document.", color: "from-violet-500 to-purple-500" },
-    { icon: SpellCheck, title: "Grammar Checker", description: "Check your writing for grammatical errors with explanations.", color: "from-emerald-500 to-green-500" },
+  const features: { icon: React.ComponentType<{ className?: string }>; title: string; description: string; color: string; href: string }[] = [
+    { icon: MessageCircle, title: "AI Chat", description: "Context-aware AI advisor that knows your study patterns and history.", color: "from-purple-500 to-pink-500", href: "/chat" },
+    { icon: Brain, title: "Quiz Generator", description: "Auto-generate quizzes from topics, PDFs, or your weakest subjects.", color: "from-blue-500 to-cyan-500", href: "/quiz" },
+    { icon: FileText, title: "Paper Generator", description: "Full practice exam papers with MCQs, short & long questions.", color: "from-green-500 to-emerald-500", href: "/paper-generator" },
+    { icon: Clock, title: "Pomodoro Timer", description: "Stay focused with customizable Pomodoro study sessions.", color: "from-orange-500 to-red-500", href: "/timer" },
+    { icon: Music, title: "Study Music", description: "Curated lo-fi and ambient music for deep focus.", color: "from-pink-500 to-rose-500", href: "/dashboard" },
+    { icon: FileSearch, title: "AI Summarizer", description: "Condense long documents into concise, easy-to-digest summaries.", color: "from-indigo-500 to-purple-500", href: "/summarize" },
+    { icon: PenTool, title: "Writing Assistant", description: "AI helps with essays, emails, letters & applications.", color: "from-yellow-500 to-orange-500", href: "/writing/essay" },
+    { icon: Calendar, title: "Study Planner", description: "AI-generated personalized study schedules from your syllabus.", color: "from-teal-500 to-cyan-500", href: "/planner" },
+    { icon: BarChart3, title: "Progress Tracker", description: "Visualize your academic growth with detailed charts.", color: "from-blue-600 to-indigo-600", href: "/progress" },
+    { icon: FileCheck, title: "Guess Paper", description: "Analyze past papers to predict future exam questions.", color: "from-red-500 to-pink-500", href: "/guess-paper" },
+    { icon: BookCopy, title: "Notes Maker", description: "Generate structured student-style notes from any document.", color: "from-violet-500 to-purple-500", href: "/notes-maker" },
+    { icon: SpellCheck, title: "Grammar Checker", description: "Check your writing for grammatical errors with explanations.", color: "from-emerald-500 to-green-500", href: "/analyzer/grammar-checker" },
   ];
 
   const stats: { icon: React.ComponentType<{ className?: string }>; value: string; label: string }[] = [
@@ -171,9 +198,8 @@ export default function LandingPage() {
 
         <div className="relative z-10 text-center px-4 max-w-5xl mx-auto">
           <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 1 }}>
-            <motion.div className="flex items-center justify-center gap-6 mb-8"
+            <motion.div className="flex items-center justify-center mb-8"
               initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ delay: 0.3, type: "spring" }}>
-              <Image src={schoolLogo} alt="IMCB G-10/4" width={80} height={80} className="rounded-full ring-2 ring-white/20 shadow-lg" />
               <AthenaLogo className="h-20 w-20 ring-2 ring-white/20 shadow-lg" />
             </motion.div>
 

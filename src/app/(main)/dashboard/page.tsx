@@ -13,7 +13,6 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { AthenaLogo } from "@/components/app/logo";
 import { cn } from "@/lib/utils";
-import schoolLogo from "@/LOGO/college.png";
 import { PlaceHolderImages } from "@/lib/placeholder-images";
 
 /* ─── Feature list (no images) ─────────────────────────────────────────── */
@@ -126,29 +125,13 @@ export default function DashboardPage() {
 
         <div className="relative z-10 px-4 pt-8 pb-10 sm:px-6 lg:px-8 sm:pt-14">
 
-          {/* ── Logos row ── */}
+          {/* ── Logo row ── */}
           <motion.div
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4 }}
-            className="flex items-center justify-between mb-10"
+            className="flex items-center justify-end mb-10"
           >
-            {/* School logo + name */}
-            <div className="flex items-center gap-3">
-              <Image
-                src={schoolLogo}
-                alt="School Logo"
-                width={56}
-                height={56}
-                className="rounded-full ring-2 ring-white/25 shadow-lg object-cover"
-              />
-              <div className="hidden sm:block leading-tight">
-                <p className="text-[11px] font-semibold text-white/60 uppercase tracking-widest">IMCB G-10/4</p>
-                <p className="text-sm font-bold text-white">Islamabad</p>
-              </div>
-            </div>
-
-            {/* Athena logo */}
             <AthenaLogo className="h-14 w-14 ring-2 ring-white/25 shadow-lg" />
           </motion.div>
 
