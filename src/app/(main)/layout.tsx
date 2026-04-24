@@ -5,7 +5,7 @@ import { useUser, useDoc, useFirestore, useMemoFirebase } from '@/firebase';
 import { doc } from 'firebase/firestore';
 import { useRouter } from 'next/navigation';
 import { useEffect, memo, useState, useCallback } from 'react';
-import { Loader } from 'lucide-react';
+import { Loader, PanelLeftOpen, PanelLeftClose } from 'lucide-react';
 import { ThemeToggler } from "@/components/app/theme-toggler";
 import { NotificationProvider } from "@/context/notification-context";
 import { usePathname } from "next/navigation";
@@ -14,6 +14,7 @@ import Link from 'next/link';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import BackButton from '@/components/app/back-button';
 import { MusicPlayer } from '@/components/app/music-player';
+import { Button } from '@/components/ui/button';
 
 const AppSidebar = dynamic(() => import("@/app/(main)/app-sidebar"), {
   loading: () => <div className="w-[60px] h-full bg-sidebar animate-pulse" />,
@@ -91,7 +92,18 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               {/* Dashboard header */}
               {isDashboard && (
                 <header className="flex-shrink-0 sticky top-0 z-10 flex h-14 items-center justify-between gap-4 px-4 sm:h-16 sm:px-6 bg-transparent border-none">
-                  <div />
+                  {/* Sidebar toggle */}
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setCollapsed(c => !c)}
+                    className="h-8 w-8 text-white/70 hover:text-white hover:bg-white/10"
+                  >
+                    {collapsed
+                      ? <PanelLeftOpen className="h-4 w-4" />
+                      : <PanelLeftClose className="h-4 w-4" />
+                    }
+                  </Button>
                   <div className="flex items-center gap-2">
                     <ThemeToggler />
                     <Link href="/profile" className="group">

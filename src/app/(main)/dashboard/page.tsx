@@ -52,7 +52,8 @@ function FeatureFlipCard({
     <div
       className="relative h-44 cursor-pointer"
       style={{ perspective: '1000px' }}
-      onClick={() => setFlipped(f => !f)}
+      onMouseEnter={() => setFlipped(true)}
+      onMouseLeave={() => setFlipped(false)}
     >
       <motion.div
         animate={{ rotateY: flipped ? 180 : 0 }}

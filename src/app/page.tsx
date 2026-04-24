@@ -65,7 +65,8 @@ function FeatureCard({ icon: Icon, title, description, delay, color, href }: {
       viewport={{ once: true }} transition={{ duration: 0.5, delay }}
       className="relative h-48 cursor-pointer"
       style={{ perspective: '1000px' }}
-      onClick={() => setFlipped(f => !f)}
+      onMouseEnter={() => setFlipped(true)}
+      onMouseLeave={() => setFlipped(false)}
     >
       <motion.div
         animate={{ rotateY: flipped ? 180 : 0 }}
