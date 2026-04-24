@@ -213,19 +213,14 @@ function CollapsedCategory({
 /* ─── Main sidebar ──────────────────────────────────────────────────────── */
 const AppSidebar = memo(function AppSidebar({
   collapsed = false,
-  hovered = false,
 }: {
   collapsed?: boolean;
-  hovered?: boolean;
 }) {
   const pathname = usePathname();
   const [openCategory, setOpenCategory] = useState<string | null>(null);
 
   const toggleCategory = (label: string) =>
     setOpenCategory(prev => (prev === label ? null : label));
-
-  // showLabels: show text labels next to icons (when hovered but not sub-items)
-  const showLabels = hovered && collapsed;
 
   return (
     <TooltipProvider>
@@ -234,17 +229,9 @@ const AppSidebar = memo(function AppSidebar({
         {/* Logo */}
         <SidebarHeader className={cn(
           "flex-shrink-0 py-4 border-b border-sidebar-border",
-          !showLabels ? "px-0 flex justify-center" : "px-4"
+          collapsed ? "px-0 flex justify-center" : "px-4"
         )}>
-          {showLabels ? (
-            <Link href="/dashboard" className="flex items-center gap-3 group">
-              <AthenaLogo className="h-9 w-9 ring-2 ring-sidebar-border group-hover:ring-sidebar-primary/40 transition-all duration-200" />
-              <div className="flex flex-col leading-none">
-                <span className="font-headline text-base font-bold text-sidebar-foreground">AthenaAI</span>
-                <span className="text-[11px] text-sidebar-foreground/45 font-medium tracking-wide">Study Buddy</span>
-              </div>
-            </Link>
-          ) : (
+          {collapsed ? (
             <Tooltip delayDuration={80}>
               <TooltipTrigger asChild>
                 <Link href="/dashboard">
@@ -253,46 +240,36 @@ const AppSidebar = memo(function AppSidebar({
               </TooltipTrigger>
               <TooltipContent side="right" className="text-xs font-medium">AthenaAI</TooltipContent>
             </Tooltip>
+          ) : (
+            <Link href="/dashboard" className="flex items-center gap-3 group">
+              <AthenaLogo className="h-9 w-9 ring-2 ring-sidebar-border group-hover:ring-sidebar-primary/40 transition-all duration-200" />
+              <div className="flex flex-col leading-none">
+                <span className="font-headline text-base font-bold text-sidebar-foreground">AthenaAI</span>
+                <span className="text-[11px] text-sidebar-foreground/45 font-medium tracking-wide">Study Buddy</span>
+              </div>
+            </Link>
           )}
         </SidebarHeader>
 
         {/* Nav */}
         <SidebarContent className="flex-1 overflow-y-auto scrollbar-hide py-2 px-1.5">
-          <div className={cn("space-y-0.5", !showLabels && "flex flex-col items-center gap-0.5 px-0")}>
+          <div className={cn("space-y-0.5", collapsed && "flex flex-col items-center gap-0.5 px-0")}>
             {navSections.map((section, si) => {
               if (!section.label) {
-                // Dashboard + Chat — show icon only or icon+label
                 return (
-                  <div key={si} className={cn("space-y-0.5", !showLabels && "flex flex-col items-center w-full")}>
+                  <div key={si} className={cn("space-y-0.5", collapsed && "flex flex-col items-center w-full")}>
                     {section.items.map(item => (
-                      showLabels ? (
-                        // Hovered: show icon + label, no sub-items
-                        <Link
-                          key={item.href}
-                          href={item.href}
-                          className={cn(
-                            "group relative flex items-center gap-2.5 px-3 py-2 w-full rounded-lg text-sm font-medium transition-all duration-150",
-                            pathname === item.href
-                              ? "bg-sidebar-accent text-sidebar-primary"
-                              : "text-sidebar-foreground/65 hover:text-sidebar-foreground hover:bg-sidebar-accent/60"
-                          )}
-                        >
-                          <item.icon className="h-4 w-4 flex-shrink-0" />
-                          <span className="truncate">{item.label}</span>
-                        </Link>
-                      ) : (
-                        <NavItem key={item.href} item={item} pathname={pathname} collapsed notificationKey={(item as any).notificationKey} />
-                      )
+                      <NavItem key={item.href} item={item} pathname={pathname} collapsed={collapsed} notificationKey={(item as any).notificationKey} />
                     ))}
                   </div>
                 );
               }
 
-              if (showLabels) {
-                // Hovered: show category icon + label, click to expand sub-items
+              // Collapsed: category icon only, click to expand sub-items
+              if (collapsed) {
                 return (
-                  <div key={si}>
-                    <div className="my-1 border-t border-sidebar-border/40" />
+                  <div key={si} className="w-full">
+                    <div className="my-1 mx-1 border-t border-sidebar-border/40" />
                     <CollapsedCategory
                       label={section.label}
                       icon={section.categoryIcon!}
@@ -300,25 +277,23 @@ const AppSidebar = memo(function AppSidebar({
                       pathname={pathname}
                       open={openCategory === section.label}
                       onToggle={() => toggleCategory(section.label!)}
-                      showLabel
+                      showLabel={false}
                     />
                   </div>
                 );
               }
 
-              // Pure collapsed: icon only, click to expand
+              // Expanded: section label + flat items
               return (
-                <div key={si} className="w-full">
-                  <div className="my-1 mx-1 border-t border-sidebar-border/40" />
-                  <CollapsedCategory
-                    label={section.label}
-                    icon={section.categoryIcon!}
-                    items={section.items}
-                    pathname={pathname}
-                    open={openCategory === section.label}
-                    onToggle={() => toggleCategory(section.label!)}
-                    showLabel={false}
-                  />
+                <div key={si}>
+                  <p className="px-3 pt-4 pb-1 text-[10px] font-semibold uppercase tracking-widest text-sidebar-foreground/35 select-none">
+                    {section.label}
+                  </p>
+                  <div className="space-y-0.5">
+                    {section.items.map(item => (
+                      <NavItem key={item.href} item={item} pathname={pathname} collapsed={false} notificationKey={(item as any).notificationKey} />
+                    ))}
+                  </div>
                 </div>
               );
             })}
@@ -327,22 +302,7 @@ const AppSidebar = memo(function AppSidebar({
 
         {/* Footer */}
         <SidebarFooter className="flex-shrink-0 px-1.5 py-2 border-t border-sidebar-border">
-          {showLabels ? (
-            <Link
-              href="/settings"
-              className={cn(
-                "flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-150",
-                pathname === "/settings"
-                  ? "bg-sidebar-accent text-sidebar-primary"
-                  : "text-sidebar-foreground/65 hover:text-sidebar-foreground hover:bg-sidebar-accent/60"
-              )}
-            >
-              <Settings className="h-4 w-4 flex-shrink-0" />
-              <span>Settings</span>
-            </Link>
-          ) : (
-            <NavItem item={{ href: "/settings", label: "Settings", icon: Settings }} pathname={pathname} collapsed />
-          )}
+          <NavItem item={{ href: "/settings", label: "Settings", icon: Settings }} pathname={pathname} collapsed={collapsed} />
         </SidebarFooter>
       </div>
     </TooltipProvider>

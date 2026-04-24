@@ -4,7 +4,7 @@ import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
 import { useUser, useDoc, useFirestore, useMemoFirebase } from '@/firebase';
 import { doc } from 'firebase/firestore';
 import { useRouter } from 'next/navigation';
-import { useEffect, memo, useState, useCallback } from 'react';
+import { useEffect, memo, useState } from 'react';
 import { Loader, PanelLeftOpen, PanelLeftClose } from 'lucide-react';
 import { ThemeToggler } from "@/components/app/theme-toggler";
 import { NotificationProvider } from "@/context/notification-context";
@@ -44,10 +44,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { user } = useUser();
   const firestore = useFirestore();
-  // collapsed = icon-only, expanded = full width
+  // collapsed = icon-only, expanded = full width — only toggle button controls this
   const [collapsed, setCollapsed] = useState(true);
-  // hovered = temporarily expanded on mouse-enter
-  const [hovered, setHovered] = useState(false);
 
   const userDocRef = useMemoFirebase(() => (user ? doc(firestore, 'users', user.uid) : null), [user, firestore]);
   const { data: userProfile } = useDoc(userDocRef);
@@ -59,12 +57,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const isDashboard = pathname === '/dashboard';
   const isChat = pathname === '/chat';
 
-  // Sidebar is "open" if manually expanded OR hovered
-  const sidebarOpen = !collapsed || hovered;
-
-  const handleMouseEnter = useCallback(() => { if (collapsed) setHovered(true); }, [collapsed]);
-  const handleMouseLeave = useCallback(() => setHovered(false), []);
-
   return (
     <AuthGuard>
       <NotificationProvider>
@@ -74,15 +66,12 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             {/* ── Sidebar: only on dashboard ── */}
             {isDashboard && (
               <div
-                onMouseEnter={handleMouseEnter}
-                onMouseLeave={handleMouseLeave}
                 className={cn(
-                  "flex-shrink-0 h-full border-r border-sidebar-border transition-all duration-250 ease-in-out overflow-hidden z-20",
-                  sidebarOpen ? "w-[220px]" : "w-[56px]"
+                  "flex-shrink-0 h-full border-r border-sidebar-border transition-all duration-300 ease-in-out overflow-hidden z-20",
+                  collapsed ? "w-[56px]" : "w-[220px]"
                 )}
               >
-                {/* Always collapsed=true — width expands on hover but items stay icon+click mode */}
-                <AppSidebar collapsed={true} hovered={sidebarOpen} />
+                <AppSidebar collapsed={collapsed} />
               </div>
             )}
 
