@@ -3,17 +3,19 @@
 import {
   ArrowRight, CalendarDays, LineChart, PenSquare, Timer,
   History as HistoryIcon, Sigma, Sparkles, Loader, MessageCircle,
-  CheckSquare, Clock, Award, BarChart2, TrendingUp,
+  CheckSquare, Clock, Award, BarChart2, TrendingUp, Download, Upload,
 } from "lucide-react";
 import Image from "next/image";
 import { useUser, useFirestore, useDoc, useMemoFirebase, useCollection } from "@/firebase";
-import { doc, collection, query, orderBy } from 'firebase/firestore';
+import { doc, collection, query, orderBy, updateDoc } from 'firebase/firestore';
 import { motion } from 'framer-motion';
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { AthenaLogo } from "@/components/app/logo";
 import { cn } from "@/lib/utils";
 import { PlaceHolderImages } from "@/lib/placeholder-images";
+import { Button } from "@/components/ui/button";
+import { useToast } from "@/hooks/use-toast";
 
 /* ─── Feature list (no images) ─────────────────────────────────────────── */
 const features = [
@@ -28,14 +30,11 @@ const features = [
   { title: "History", icon: HistoryIcon, href: "/history", description: "Review all past activities — quizzes, papers, summaries, and study sessions." },
 ];
 
-/* ─── Stat config ───────────────────────────────────────────────────────── */
-const statConfig = [
-  { label: "Study Time", icon: Clock, color: "text-blue-400", bg: "bg-blue-400/20" },
-  { label: "Avg Quiz Score", icon: Award, color: "text-emerald-400", bg: "bg-emerald-400/20" },
-  { label: "Subjects Mastered", icon: BarChart2, color: "text-violet-400", bg: "bg-violet-400/20" },
-];
+const DEFAULT_ORDER: string[] = features.map((f) => f.href);
 
-/* ─── Flip feature card ─────────────────────────────────────────────────── */
+type FeatureItem = (typeof features)[number];
+
+/* ─── Flip feature card (hover) — theme-safe below hero ─────────────────── */
 function FeatureFlipCard({
   title, icon: Icon, href, description, isButtonLoading, onClick,
 }: {
@@ -57,40 +56,33 @@ function FeatureFlipCard({
     >
       <motion.div
         animate={{ rotateY: flipped ? 180 : 0 }}
-        transition={{ duration: 0.45, ease: 'easeInOut' }}
+        transition={{ duration: 0.4, ease: 'easeInOut' }}
         style={{ transformStyle: 'preserve-3d' }}
         className="relative w-full h-full"
       >
-        {/* Front */}
         <div
-          className="absolute inset-0 rounded-2xl p-5 flex flex-col gap-3 transition-all duration-200 hover:shadow-xl"
-          style={{
-            backfaceVisibility: 'hidden',
-            background: 'rgba(255,255,255,0.09)',
-            backdropFilter: 'blur(18px)',
-            WebkitBackdropFilter: 'blur(18px)',
-            border: '1px solid rgba(255,255,255,0.15)',
-          }}
+          className="absolute inset-0 flex flex-col gap-3 rounded-2xl border border-border/80 bg-card/90 p-5 text-card-foreground shadow-sm backdrop-blur-md transition-shadow hover:shadow-md"
+          style={{ backfaceVisibility: 'hidden' }}
         >
           <div className="flex items-center justify-between">
-            <div className="p-3 rounded-xl bg-primary/10">
+            <div className="rounded-xl bg-primary/12 p-3 ring-1 ring-primary/10">
               <Icon className="h-5 w-5 text-primary" />
             </div>
-            <ArrowRight className="h-4 w-4 text-muted-foreground/40" />
+            <ArrowRight className="h-4 w-4 text-muted-foreground" />
           </div>
-          <h3 className="font-semibold text-foreground text-[15px] font-headline">{title}</h3>
-          <p className="text-xs text-muted-foreground/60">Tap to see details →</p>
+          <h3 className="font-headline text-[15px] font-semibold text-foreground">{title}</h3>
+          <p className="text-xs text-muted-foreground">Hover for details</p>
         </div>
 
-        {/* Back */}
         <div
-          className="absolute inset-0 rounded-2xl p-5 flex flex-col justify-between bg-primary/10 border border-primary/20"
+          className="absolute inset-0 flex flex-col justify-between rounded-2xl border border-border bg-muted/40 p-5 text-foreground backdrop-blur-md"
           style={{ backfaceVisibility: 'hidden', transform: 'rotateY(180deg)' }}
         >
-          <p className="text-sm text-foreground/80 leading-relaxed">{description}</p>
+          <p className="text-sm leading-relaxed text-foreground/90">{description}</p>
           <button
-            onClick={e => { e.stopPropagation(); onClick(); }}
-            className="mt-2 inline-flex items-center gap-1.5 text-xs font-semibold text-primary bg-primary/10 hover:bg-primary/20 px-3 py-1.5 rounded-full transition-all w-fit"
+            type="button"
+            onClick={(e) => { e.stopPropagation(); onClick(); }}
+            className="mt-2 inline-flex w-fit items-center gap-1.5 rounded-full bg-primary/15 px-3 py-1.5 text-xs font-semibold text-primary transition-colors hover:bg-primary/25"
           >
             {isButtonLoading ? <><Loader className="h-3 w-3 animate-spin" /> Opening...</> : <>Open {title} <ArrowRight className="h-3 w-3" /></>}
           </button>
@@ -100,22 +92,13 @@ function FeatureFlipCard({
   );
 }
 
-/* ─── Animation variants ────────────────────────────────────────────────── */
 const containerVariants = {
   hidden: {},
-  show: { transition: { staggerChildren: 0.055 } },
+  show: { transition: { staggerChildren: 0.03 } },
 };
 const itemVariants = {
-  hidden: { opacity: 0, y: 18 },
-  show: { opacity: 1, y: 0, transition: { duration: 0.32, ease: "easeOut" } },
-};
-
-/* ─── Frosted glass style (shared) ─────────────────────────────────────── */
-const glassStyle: React.CSSProperties = {
-  background: 'rgba(255,255,255,0.09)',
-  backdropFilter: 'blur(18px)',
-  WebkitBackdropFilter: 'blur(18px)',
-  border: '1px solid rgba(255,255,255,0.15)',
+  hidden: { opacity: 0, y: 12 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.22, ease: "easeOut" } },
 };
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -125,10 +108,13 @@ export default function DashboardPage() {
   const { user, isUserLoading } = useUser();
   const firestore = useFirestore();
   const router = useRouter();
+  const { toast } = useToast();
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [loading, setLoading] = useState<string | null>(null);
   const [totalStudyTime, setTotalStudyTime] = useState(0);
   const [averageScore, setAverageScore] = useState(0);
   const [subjectsMastered, setSubjectsMastered] = useState(0);
+  const [quickOrder, setQuickOrder] = useState<string[]>([...DEFAULT_ORDER]);
 
   const userDocRef = useMemoFirebase(() => (user ? doc(firestore, 'users', user.uid) : null), [user, firestore]);
   const { data: userProfile, isLoading: isProfileLoading } = useDoc(userDocRef);
@@ -138,6 +124,18 @@ export default function DashboardPage() {
 
   const sessionsQ = useMemoFirebase(() => user ? query(collection(firestore, 'users', user.uid, 'studySessions'), orderBy('date', 'desc')) : null, [user, firestore]);
   const { data: studySessions } = useCollection<{ duration: number }>(sessionsQ);
+
+  useEffect(() => {
+    const raw = (userProfile as { dashboardQuickOrder?: string[] } | undefined)?.dashboardQuickOrder;
+    if (!raw?.length) {
+      setQuickOrder([...DEFAULT_ORDER]);
+      return;
+    }
+    const known = new Set(DEFAULT_ORDER);
+    const filtered = raw.filter((h) => known.has(h));
+    const merged = [...filtered, ...DEFAULT_ORDER.filter((h) => !filtered.includes(h))];
+    setQuickOrder(merged);
+  }, [userProfile]);
 
   useEffect(() => {
     if (!quizAttempts) return;
@@ -158,6 +156,61 @@ export default function DashboardPage() {
     setTotalStudyTime(studySessions.reduce((acc, s) => acc + s.duration, 0));
   }, [studySessions]);
 
+  const orderedFeatures = useMemo(() => {
+    const map = new Map(features.map((f) => [f.href, f as FeatureItem]));
+    return quickOrder.map((h) => map.get(h)).filter(Boolean) as FeatureItem[];
+  }, [quickOrder]);
+
+  const persistQuickOrder = async (order: string[]) => {
+    if (!userDocRef) {
+      toast({ variant: 'destructive', title: 'Sign in required', description: 'Log in to save dashboard layout.' });
+      return;
+    }
+    await updateDoc(userDocRef, { dashboardQuickOrder: order });
+    setQuickOrder(order);
+    toast({ title: 'Saved', description: 'Quick access order updated in your account.' });
+  };
+
+  const exportPrefs = () => {
+    const payload = { version: 1, dashboardQuickOrder: quickOrder, exportedAt: new Date().toISOString() };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'athena-dashboard-prefs.json';
+    a.click();
+    URL.revokeObjectURL(url);
+    toast({ title: 'Exported', description: 'Downloaded dashboard preferences JSON.' });
+  };
+
+  const importPrefsFromFile = (file: File) => {
+    const reader = new FileReader();
+    reader.onload = async () => {
+      try {
+        const text = reader.result as string;
+        const j = JSON.parse(text) as { dashboardQuickOrder?: string[] };
+        if (!Array.isArray(j.dashboardQuickOrder)) throw new Error('Missing dashboardQuickOrder array');
+        const known = new Set(DEFAULT_ORDER);
+        const next = j.dashboardQuickOrder.filter((h) => known.has(h));
+        if (!next.length) throw new Error('No valid tool paths');
+        const merged = [...next, ...DEFAULT_ORDER.filter((h) => !next.includes(h))];
+        await persistQuickOrder(merged);
+        toast({ title: 'Imported', description: 'Dashboard quick access updated from file.' });
+      } catch (e: unknown) {
+        toast({
+          variant: 'destructive',
+          title: 'Import failed',
+          description: e instanceof Error ? e.message : 'Invalid JSON file.',
+        });
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  const resetOrder = async () => {
+    await persistQuickOrder([...DEFAULT_ORDER]);
+  };
+
   const isLoading = isUserLoading || isProfileLoading;
   const fullName = userProfile?.fullName || "Student";
   const firstName = fullName.split(' ')[0];
@@ -168,71 +221,73 @@ export default function DashboardPage() {
     `${subjectsMastered}`,
   ];
 
+  const statConfig = [
+    { label: "Study Time", icon: Clock, color: "text-sky-500 dark:text-sky-400", bg: "bg-sky-500/15 dark:bg-sky-400/15 ring-1 ring-sky-500/20" },
+    { label: "Avg Quiz Score", icon: Award, color: "text-emerald-600 dark:text-emerald-400", bg: "bg-emerald-500/15 dark:bg-emerald-400/15 ring-1 ring-emerald-500/20" },
+    { label: "Subjects Mastered", icon: BarChart2, color: "text-violet-600 dark:text-violet-400", bg: "bg-violet-500/15 dark:bg-violet-400/15 ring-1 ring-violet-500/20" },
+  ];
+
   const heroImage = PlaceHolderImages.find(p => p.id === "dashboardHero");
 
   return (
-    <div className="flex flex-col min-h-full bg-background">
+    <div className="flex min-h-full flex-col bg-background">
 
-      {/* ══════════════════════════════════════════
-          HERO
-      ══════════════════════════════════════════ */}
-      <div className="relative overflow-hidden min-h-[460px] sm:min-h-[520px]">
+      <div className="relative min-h-[460px] overflow-hidden sm:min-h-[520px]">
 
-        {/* Background */}
         {heroImage ? (
           <div className="absolute inset-0">
             <Image src={heroImage.imageUrl} alt="" fill className="object-cover" priority />
-            <div className="absolute inset-0 bg-gradient-to-b from-black/50 via-black/55 to-background" />
+            <div className="absolute inset-0 bg-gradient-to-b from-black/65 via-black/50 to-background" />
           </div>
         ) : (
-          <div className="absolute inset-0 bg-gradient-to-br from-primary via-primary/80 to-accent/60" />
+          <div className="absolute inset-0 bg-gradient-to-br from-primary via-primary/85 to-accent/70" />
         )}
 
-        <div className="relative z-10 px-4 pt-8 pb-10 sm:px-6 lg:px-8 sm:pt-14">
+        <div className="relative z-10 px-4 pb-10 pt-8 sm:px-6 sm:pt-14 lg:px-8">
 
-          {/* ── Logo row ── */}
           <motion.div
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4 }}
-            className="flex items-center justify-end mb-10"
+            transition={{ duration: 0.35 }}
+            className="mb-10 flex items-center justify-end"
           >
-            <AthenaLogo className="h-14 w-14 ring-2 ring-white/25 shadow-lg" />
+            <AthenaLogo className="h-14 w-14 shadow-lg ring-2 ring-white/30" />
           </motion.div>
 
-          {/* ── Greeting ── */}
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4, delay: 0.1 }}
+            transition={{ duration: 0.35, delay: 0.08 }}
             className="mb-10"
           >
-            <p className="text-sm font-medium text-white/55 mb-2 tracking-wide">
+            <p className="mb-2 text-sm font-medium tracking-wide text-white/70">
               {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
             </p>
-            <h1 className="text-4xl sm:text-5xl font-bold font-headline text-white leading-tight drop-shadow-md">
-              {isLoading ? "Welcome back..." : `Hey, ${firstName} 👋`}
+            <h1 className="font-headline text-4xl font-bold leading-tight text-white drop-shadow-sm sm:text-5xl">
+              {isLoading ? "Welcome back..." : `Hey, ${firstName}`}
             </h1>
-            <p className="mt-3 text-white/65 text-base max-w-lg">
+            <p className="mt-3 max-w-lg text-base text-white/80">
               Your AI-powered study buddy is ready to help you excel today.
             </p>
           </motion.div>
 
-          {/* ── Stat cards ── */}
           <motion.div
-            initial={{ opacity: 0, y: 16 }}
+            initial={{ opacity: 0, y: 14 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4, delay: 0.22 }}
-            className="grid grid-cols-1 sm:grid-cols-3 gap-4"
+            transition={{ duration: 0.35, delay: 0.16 }}
+            className="grid grid-cols-1 gap-4 sm:grid-cols-3"
           >
             {statConfig.map((s, i) => (
-              <div key={s.label} className="rounded-2xl p-5 flex items-center gap-4" style={glassStyle}>
-                <div className={cn("flex-shrink-0 p-3 rounded-xl", s.bg)}>
+              <div
+                key={s.label}
+                className="flex items-center gap-4 rounded-2xl border border-white/20 bg-white/10 p-5 text-white shadow-sm backdrop-blur-md"
+              >
+                <div className={cn("flex-shrink-0 rounded-xl p-3", s.bg)}>
                   <s.icon className={cn("h-6 w-6", s.color)} />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold text-white leading-none">{statValues[i]}</p>
-                  <p className="text-sm text-white/55 mt-1">{s.label}</p>
+                  <p className="text-2xl font-bold leading-none text-white">{statValues[i]}</p>
+                  <p className="mt-1 text-sm text-white/75">{s.label}</p>
                 </div>
               </div>
             ))}
@@ -241,34 +296,63 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* ══════════════════════════════════════════
-          FEATURE GRID
-      ══════════════════════════════════════════ */}
-      <div className="px-4 pb-10 sm:px-6 lg:px-8 mt-6">
+      <div className="mt-6 px-4 pb-10 sm:px-6 lg:px-8">
 
-        {/* Section header */}
-        <div className="flex items-center gap-2 mb-5">
-          <TrendingUp className="h-4 w-4 text-primary" />
-          <h2 className="text-sm font-semibold text-foreground tracking-wide">Quick Access</h2>
+        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <div className="flex items-center gap-2">
+            <TrendingUp className="h-4 w-4 text-primary" />
+            <h2 className="text-sm font-semibold tracking-wide text-foreground">Quick access</h2>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button type="button" variant="outline" size="sm" className="h-8 gap-1.5 text-xs" onClick={exportPrefs}>
+              <Download className="h-3.5 w-3.5" /> Export layout
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-8 gap-1.5 text-xs"
+              onClick={() => fileInputRef.current?.click()}
+            >
+              <Upload className="h-3.5 w-3.5" /> Import layout
+            </Button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="application/json,.json"
+              className="hidden"
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                e.target.value = '';
+                if (f) importPrefsFromFile(f);
+              }}
+            />
+            <Button type="button" variant="ghost" size="sm" className="h-8 text-xs text-muted-foreground" onClick={() => void resetOrder()}>
+              Reset order
+            </Button>
+          </div>
         </div>
 
         <motion.div
           variants={containerVariants}
           initial="hidden"
           animate="show"
-          className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4"
+          className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3"
         >
-          {features.map((feature) => {
+          {orderedFeatures.map((feature) => {
             const isButtonLoading = loading === feature.href;
             return (
-              <motion.div key={feature.title} variants={itemVariants}>
+              <motion.div key={feature.href} variants={itemVariants}>
                 <FeatureFlipCard
                   title={feature.title}
                   icon={feature.icon}
                   href={feature.href}
                   description={feature.description}
                   isButtonLoading={isButtonLoading}
-                  onClick={() => { setLoading(feature.href); router.push(feature.href); }}
+                  onClick={() => {
+                    setLoading(feature.href);
+                    requestAnimationFrame(() => router.push(feature.href));
+                  }}
                 />
               </motion.div>
             );

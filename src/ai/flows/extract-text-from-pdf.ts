@@ -9,6 +9,7 @@
  */
 
 import { ai } from '@/ai/genkit';
+import { ANTHROPIC_MODEL } from '@/ai/model';
 import { z } from 'genkit';
 
 const PdfToTextInputSchema = z.object({
@@ -37,7 +38,7 @@ export async function extractTextFromPdf(
 
 const prompt = ai.definePrompt({
   name: 'extractTextFromPdfPrompt',
-  model: 'googleai/gemini-2.5-flash',
+  model: ANTHROPIC_MODEL,
   input: { schema: PdfToTextInputSchema },
   output: { schema: PdfToTextOutputSchema },
   prompt: `You are an expert data extractor. Your task is to extract all the text content from the provided PDF document.

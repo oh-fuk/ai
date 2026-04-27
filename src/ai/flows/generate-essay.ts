@@ -9,6 +9,7 @@
  */
 
 import { ai } from '@/ai/genkit';
+import { ANTHROPIC_MODEL } from '@/ai/model';
 import { z } from 'genkit';
 
 const GenerateEssayInputSchema = z.object({
@@ -29,7 +30,7 @@ export async function generateEssay(input: GenerateEssayInput): Promise<Generate
 
 const prompt = ai.definePrompt({
   name: 'generateEssayPrompt',
-  model: 'googleai/gemini-2.5-flash',
+  model: ANTHROPIC_MODEL,
   input: { schema: GenerateEssayInputSchema },
   output: { schema: GenerateEssayOutputSchema },
   prompt: `You are an expert academic writer. Your task is to write a well-structured, comprehensive, and COMPLETE essay on the given topic without breaking or interrupting the content.

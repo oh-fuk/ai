@@ -1,6 +1,7 @@
 'use server';
 
 import { ai } from '@/ai/genkit';
+import { ANTHROPIC_MODEL } from '@/ai/model';
 import {
   GenerateNotesInputSchema,
   GenerateNotesOutputSchema,
@@ -18,14 +19,14 @@ import {
 
 const generateNotesPrompt = ai.definePrompt({
   name: 'generateNotesPrompt',
-  model: 'googleai/gemini-2.5-flash',  // Gemini 2.5 Pro with 1M context
+  model: ANTHROPIC_MODEL,
   input: { schema: GenerateNotesInputSchema },
   output: { 
     schema: GenerateNotesOutputSchema,
   },
   config: {
     temperature: 0.7,
-    maxOutputTokens: 32768,  // Gemini 3.0 Pro supports up to 32K output tokens!
+    maxOutputTokens: 32768,
     topP: 0.95,
     topK: 40
   },
@@ -137,7 +138,7 @@ export async function generateNotes(input: GenerateNotesInput): Promise<Generate
 
 const extractKeywordsPrompt = ai.definePrompt({
   name: 'extractKeywordsPrompt',
-  model: 'googleai/gemini-2.5-flash',
+  model: ANTHROPIC_MODEL,
   input: { schema: ExtractKeywordsInputSchema },
   output: { schema: ExtractKeywordsOutputSchema },
   prompt: `You are a concise knowledge extractor. From the provided study notes, produce a list of the most important terms and a one‑sentence explanation for each.

@@ -8,6 +8,7 @@
  */
 
 import { ai } from '@/ai/genkit';
+import { ANTHROPIC_MODEL } from '@/ai/model';
 import { z } from 'genkit';
 
 const ImageToTextInputSchema = z.object({
@@ -40,7 +41,7 @@ export async function extractTextFromImage(
 
 const prompt = ai.definePrompt({
   name: 'extractTextFromImagePrompt',
-  model: 'googleai/gemini-2.5-flash',
+  model: ANTHROPIC_MODEL,
   input: { schema: ImageToTextInputSchema },
   output: { schema: ImageToTextOutputSchema },
   prompt: `You are an expert data extractor with Optical Character Recognition (OCR) capabilities. Your task is to analyze the provided image in the context of a specific subject.

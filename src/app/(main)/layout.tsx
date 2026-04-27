@@ -1,5 +1,6 @@
 'use client';
 import dynamic from 'next/dynamic';
+import { Suspense } from 'react';
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
 import { useUser, useDoc, useFirestore, useMemoFirebase } from '@/firebase';
 import { doc } from 'firebase/firestore';
@@ -17,7 +18,7 @@ import { MusicPlayer } from '@/components/app/music-player';
 import { Button } from '@/components/ui/button';
 
 const AppSidebar = dynamic(() => import("@/app/(main)/app-sidebar"), {
-  loading: () => <div className="w-[60px] h-full bg-sidebar animate-pulse" />,
+  loading: () => <div className="w-[56px] h-full bg-sidebar animate-pulse" />,
   ssr: false
 });
 
@@ -56,6 +57,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   const isDashboard = pathname === '/dashboard';
   const isChat = pathname === '/chat';
+  /** Chat stays full-width; every other main route gets the app sidebar (Connectors, Drive, etc.). */
+  const showAppSidebar = !isChat;
 
   return (
     <AuthGuard>
@@ -63,35 +66,41 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         <SidebarProvider defaultOpen={true}>
           <div className="flex h-screen w-full overflow-hidden bg-background">
 
-            {/* ── Sidebar: only on dashboard ── */}
-            {isDashboard && (
+            {showAppSidebar && (
               <div
                 className={cn(
                   "flex-shrink-0 h-full border-r border-sidebar-border transition-all duration-300 ease-in-out overflow-hidden z-20",
                   collapsed ? "w-[56px]" : "w-[220px]"
                 )}
               >
-                <AppSidebar collapsed={collapsed} />
+                <Suspense fallback={<div className="h-full w-[56px] bg-sidebar animate-pulse" />}>
+                  <AppSidebar collapsed={collapsed} />
+                </Suspense>
               </div>
             )}
 
             {/* ── Main content ── */}
             <SidebarInset className="flex flex-col flex-1 h-full overflow-hidden">
 
-              {/* Dashboard header */}
-              {isDashboard && (
-                <header className="flex-shrink-0 sticky top-0 z-10 flex h-14 items-center justify-between gap-4 px-4 sm:h-16 sm:px-6 bg-transparent border-none">
-                  {/* Sidebar toggle */}
+              {showAppSidebar && (
+                <header
+                  className={cn(
+                    "flex-shrink-0 sticky top-0 z-10 flex h-14 items-center justify-between gap-4 px-4 sm:h-16 sm:px-6 border-b border-border/60",
+                    isDashboard ? "bg-transparent border-transparent" : "bg-background/90 backdrop-blur-md"
+                  )}
+                >
                   <Button
                     variant="ghost"
                     size="icon"
-                    onClick={() => setCollapsed(c => !c)}
-                    className="h-8 w-8 text-white/70 hover:text-white hover:bg-white/10"
+                    onClick={() => setCollapsed((c) => !c)}
+                    className={cn(
+                      "h-8 w-8",
+                      isDashboard
+                        ? "text-white/80 hover:text-white hover:bg-white/10"
+                        : "text-muted-foreground hover:text-foreground hover:bg-muted/60"
+                    )}
                   >
-                    {collapsed
-                      ? <PanelLeftOpen className="h-4 w-4" />
-                      : <PanelLeftClose className="h-4 w-4" />
-                    }
+                    {collapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
                   </Button>
                   <div className="flex items-center gap-2">
                     <ThemeToggler />
@@ -107,8 +116,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 </header>
               )}
 
-              {/* Non-dashboard: slim back-button bar */}
-              {!isDashboard && (
+              {!showAppSidebar && (
                 <div className="flex-shrink-0 sticky top-0 z-10 flex h-12 items-center gap-2 px-3 bg-background/80 backdrop-blur-md border-b border-border/60">
                   <BackButton />
                 </div>

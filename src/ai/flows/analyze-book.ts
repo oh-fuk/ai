@@ -9,6 +9,7 @@
  */
 
 import { ai } from '@/ai/genkit';
+import { ANTHROPIC_MODEL } from '@/ai/model';
 import { z } from 'genkit';
 
 const AnalyzeBookInputSchema = z.object({
@@ -32,7 +33,7 @@ export async function analyzeBook(input: AnalyzeBookInput): Promise<AnalyzeBookO
 
 const prompt = ai.definePrompt({
   name: 'analyzeBookPrompt',
-  model: 'googleai/gemini-2.5-flash',
+  model: ANTHROPIC_MODEL,
   input: { schema: AnalyzeBookInputSchema },
   output: { schema: AnalyzeBookOutputSchema },
   prompt: `You are an expert academic analyst. Your task is to process a textbook PDF for a specific subject, extract its content, and provide a structured analysis.

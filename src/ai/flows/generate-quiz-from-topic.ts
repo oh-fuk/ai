@@ -10,6 +10,7 @@
  */
 
 import { ai } from '@/ai/genkit';
+import { ANTHROPIC_MODEL } from '@/ai/model';
 import { z } from 'genkit';
 
 const GenerateQuizFromTopicInputSchema = z.object({
@@ -33,7 +34,7 @@ export async function generateQuizFromTopic(input: GenerateQuizFromTopicInput): 
 
 const prompt = ai.definePrompt({
   name: 'generateQuizFromTopicPrompt',
-  model: 'googleai/gemini-2.5-flash',
+  model: ANTHROPIC_MODEL,
   input: { schema: GenerateQuizFromTopicInputSchema },
   output: { schema: GenerateQuizFromTopicOutputSchema },
   prompt: `You are a quiz generator. Given a topic, generate a quiz with the specified number of questions.

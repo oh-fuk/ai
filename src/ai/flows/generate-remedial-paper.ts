@@ -10,6 +10,7 @@
  */
 
 import { ai } from '@/ai/genkit';
+import { ANTHROPIC_MODEL } from '@/ai/model';
 import { z } from 'genkit';
 
 const GenerateRemedialPaperInputSchema = z.object({
@@ -48,7 +49,7 @@ export async function generateRemedialPaper(
 
 const prompt = ai.definePrompt({
   name: 'generateRemedialPaperPrompt',
-  model: 'googleai/gemini-2.5-flash',
+  model: ANTHROPIC_MODEL,
   input: { schema: GenerateRemedialPaperInputSchema },
   output: { schema: GenerateRemedialPaperOutputSchema },
   prompt: `You are an expert academic tutor. Your task is to analyze a student's performance history to identify their weakest topic and then generate a targeted exam paper to help them improve.

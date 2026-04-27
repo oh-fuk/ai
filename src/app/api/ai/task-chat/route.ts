@@ -1,8 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { generateChatResponse } from '@/ai/flows/generate-chat-response';
+import { hasAnthropicApiKey, anthropicConfigErrorMessage } from '@/lib/anthropic-env';
 
 export async function POST(request: NextRequest) {
     try {
+        if (!hasAnthropicApiKey()) {
+            return NextResponse.json(
+                { error: anthropicConfigErrorMessage(), success: false },
+                { status: 503 }
+            );
+        }
+
         const { messages, userMessage, taskContext, userId, tasks } = await request.json();
 
         if (!userMessage || !userId) {

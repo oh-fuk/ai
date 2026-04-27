@@ -9,6 +9,7 @@
  */
 
 import { ai } from '@/ai/genkit';
+import { ANTHROPIC_MODEL } from '@/ai/model';
 import { z } from 'genkit';
 
 const ExplainMainKeywordsInputSchema = z.object({
@@ -37,7 +38,7 @@ export async function explainMainKeywords(input: ExplainMainKeywordsInput): Prom
 
 const prompt = ai.definePrompt({
   name: 'explainMainKeywordsPrompt',
-  model: 'googleai/gemini-2.5-flash',
+  model: ANTHROPIC_MODEL,
   input: { schema: ExplainMainKeywordsInputSchema },
   output: { schema: ExplainMainKeywordsOutputSchema },
   prompt: `You are an expert lexicographer. Your goal is to provide a detailed explanation for each of the provided main keywords based on the full text.

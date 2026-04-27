@@ -9,6 +9,7 @@
  */
 
 import { ai } from '@/ai/genkit';
+import { ANTHROPIC_MODEL } from '@/ai/model';
 import { z } from 'genkit';
 
 const GenerateChatTitleInputSchema = z.object({
@@ -27,7 +28,7 @@ export async function generateChatTitle(
 
 const prompt = ai.definePrompt({
   name: 'generateChatTitlePrompt',
-  model: 'googleai/gemini-2.5-flash',
+  model: ANTHROPIC_MODEL,
   input: { schema: GenerateChatTitleInputSchema },
   output: { schema: GenerateChatTitleOutputSchema },
   prompt: `You are an expert at creating concise titles. Your task is to read the user's first message and create a short, descriptive title for the conversation.

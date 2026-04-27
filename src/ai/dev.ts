@@ -11,7 +11,6 @@ import '@/ai/flows/generate-quiz-from-topic.ts';
 import '@/ai/flows/generate-study-plan.ts';
 import '@/ai/flows/generate-remedial-paper.ts';
 import '@/ai/flows/generate-remedial-quiz.ts';
-import '@/ai/flows/text-to-speech.ts';
 import '@/ai/flows/extract-text-from-pdf.ts';
 import '@/ai/flows/explain-main-keywords.ts';
 import '@/ai/flows/generate-notes.ts';

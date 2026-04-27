@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { Suspense, useState, useEffect, useCallback, useRef } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { useUser, useFirestore, useMemoFirebase, useDoc } from '@/firebase';
 import { doc, updateDoc } from 'firebase/firestore';
 import PageHeader from '@/components/app/page-header';
@@ -10,8 +11,9 @@ import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import {
     HardDrive, CheckCircle2, XCircle, Loader, ExternalLink,
-    FolderOpen, Upload, Unplug,
+    FolderOpen, Upload, Unplug, Mail, FileStack, Cloud,
 } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 const GOOGLE_CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || '';
 const GOOGLE_PICKER_API_KEY = process.env.NEXT_PUBLIC_GOOGLE_PICKER_API_KEY || '';
@@ -35,7 +37,9 @@ function loadScript(src: string): Promise<void> {
     });
 }
 
-/* ─── Connector card ────────────────────────────────────────────────────── */
+const connectorCardClass =
+    'border border-border/80 bg-card text-card-foreground shadow-sm transition-colors hover:border-primary/25 hover:shadow-md';
+
 function ConnectorCard({
     icon, name, description, connected, connecting, email,
     onConnect, onDisconnect, comingSoon,
@@ -45,34 +49,34 @@ function ConnectorCard({
     onConnect?: () => void; onDisconnect?: () => void; comingSoon?: boolean;
 }) {
     return (
-        <Card className={connected ? 'border-green-500/40 bg-green-500/5' : ''}>
-            <CardHeader className="flex-row items-start justify-between gap-4 pb-3">
+        <Card className={cn(connectorCardClass, connected && 'border-emerald-500/35 bg-emerald-500/[0.06]')}>
+            <CardHeader className="flex flex-row items-start justify-between gap-4 pb-3">
                 <div className="flex items-center gap-3">
-                    <div className="p-2.5 rounded-xl bg-muted">{icon}</div>
+                    <div className="rounded-xl bg-muted/80 p-2.5 text-foreground ring-1 ring-border/60">{icon}</div>
                     <div>
-                        <CardTitle className="text-base flex items-center gap-2">
+                        <CardTitle className="flex items-center gap-2 text-base text-foreground">
                             {name}
-                            {connected && <Badge className="bg-green-600 hover:bg-green-700 text-xs">Connected</Badge>}
-                            {comingSoon && <Badge variant="secondary" className="text-xs">Coming Soon</Badge>}
+                            {connected && <Badge className="bg-emerald-600 text-xs hover:bg-emerald-700">Connected</Badge>}
+                            {comingSoon && <Badge variant="secondary" className="text-xs">Coming soon</Badge>}
                         </CardTitle>
-                        <CardDescription className="text-xs mt-0.5">{description}</CardDescription>
+                        <CardDescription className="mt-0.5 text-xs text-muted-foreground">{description}</CardDescription>
                     </div>
                 </div>
                 {connected
-                    ? <CheckCircle2 className="h-5 w-5 text-green-500 flex-shrink-0 mt-0.5" />
-                    : <XCircle className="h-5 w-5 text-muted-foreground/40 flex-shrink-0 mt-0.5" />}
+                    ? <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-emerald-500" />
+                    : <XCircle className="mt-0.5 h-5 w-5 shrink-0 text-muted-foreground/50" />}
             </CardHeader>
-            <CardContent className="pt-0 flex items-center justify-between gap-4">
+            <CardContent className="flex flex-col gap-3 pt-0 sm:flex-row sm:items-center sm:justify-between">
                 <p className="text-xs text-muted-foreground">
                     {connected && email ? `Signed in as ${email}` : connected ? 'Active' : 'Not connected'}
                 </p>
                 {!comingSoon && (
                     connected ? (
-                        <Button variant="outline" size="sm" onClick={onDisconnect} className="gap-1.5 text-destructive hover:text-destructive">
+                        <Button variant="outline" size="sm" onClick={onDisconnect} className="w-full gap-1.5 text-destructive hover:text-destructive sm:w-auto">
                             <Unplug className="h-3.5 w-3.5" /> Disconnect
                         </Button>
                     ) : (
-                        <Button size="sm" onClick={onConnect} disabled={connecting} className="gap-1.5">
+                        <Button size="sm" onClick={onConnect} disabled={connecting} className="w-full gap-1.5 sm:w-auto">
                             {connecting ? <Loader className="h-3.5 w-3.5 animate-spin" /> : <ExternalLink className="h-3.5 w-3.5" />}
                             {connecting ? 'Connecting...' : 'Connect'}
                         </Button>
@@ -83,11 +87,16 @@ function ConnectorCard({
     );
 }
 
-/* ─── Main page ─────────────────────────────────────────────────────────── */
-export default function ConnectorsPage() {
+function ConnectorsPageInner() {
+    const searchParams = useSearchParams();
+    const section = searchParams.get('section');
+    const driveOnly = section === 'drive';
+
     const { user } = useUser();
     const firestore = useFirestore();
     const { toast } = useToast();
+    const toastRef = useRef(toast);
+    toastRef.current = toast;
 
     const [driveConnecting, setDriveConnecting] = useState(false);
     const [driveConnected, setDriveConnected] = useState(false);
@@ -102,7 +111,6 @@ export default function ConnectorsPage() {
     );
     const { data: userProfile } = useDoc(userDocRef);
 
-    // Restore saved connection
     useEffect(() => {
         if (userProfile?.googleDrive?.connected) {
             setDriveConnected(true);
@@ -111,22 +119,19 @@ export default function ConnectorsPage() {
         }
     }, [userProfile]);
 
-    // Load Google Identity + GAPI scripts
     useEffect(() => {
         Promise.all([
             loadScript('https://accounts.google.com/gsi/client'),
             loadScript('https://apis.google.com/js/api.js'),
         ]).then(() => {
             setScriptsLoaded(true);
-            // Load picker after gapi is ready
             window.gapi.load('picker', () => setPickerLoaded(true));
-        }).catch(() => toast({ variant: 'destructive', title: 'Failed to load Google scripts' }));
+        }).catch(() => toastRef.current({ variant: 'destructive', title: 'Failed to load Google scripts' }));
     }, []);
 
-    /* ── Connect ── */
     const handleConnectDrive = useCallback(async () => {
         if (!scriptsLoaded) {
-            toast({ variant: 'destructive', title: 'Scripts not ready, please wait a moment.' });
+            toastRef.current({ variant: 'destructive', title: 'Still loading', description: 'Wait a moment and try again.' });
             return;
         }
         setDriveConnecting(true);
@@ -140,7 +145,6 @@ export default function ConnectorsPage() {
                         const token = response.access_token;
                         setAccessToken(token);
 
-                        // Get email
                         const res = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
                             headers: { Authorization: `Bearer ${token}` },
                         });
@@ -149,7 +153,6 @@ export default function ConnectorsPage() {
                         setDriveConnected(true);
                         setDriveEmail(email);
 
-                        // Persist to Firestore
                         if (userDocRef) {
                             await updateDoc(userDocRef as any, {
                                 googleDrive: {
@@ -160,20 +163,19 @@ export default function ConnectorsPage() {
                                 },
                             });
                         }
-                        toast({ title: '✅ Google Drive Connected!', description: `Signed in as ${email}` });
+                        toastRef.current({ title: 'Google Drive connected', description: `Signed in as ${email}` });
                         resolve();
                     },
                 });
                 tokenClient.requestAccessToken({ prompt: 'consent' });
             });
         } catch (e: any) {
-            toast({ variant: 'destructive', title: 'Connection failed', description: e.message });
+            toastRef.current({ variant: 'destructive', title: 'Connection failed', description: e.message });
         } finally {
             setDriveConnecting(false);
         }
-    }, [scriptsLoaded, userDocRef, toast]);
+    }, [scriptsLoaded, userDocRef]);
 
-    /* ── Disconnect ── */
     const handleDisconnectDrive = async () => {
         if (accessToken) window.google?.accounts.oauth2.revoke(accessToken, () => { });
         setDriveConnected(false);
@@ -184,13 +186,12 @@ export default function ConnectorsPage() {
                 googleDrive: { connected: false, email: '', accessToken: '', connectedAt: null },
             });
         }
-        toast({ title: 'Google Drive Disconnected' });
+        toastRef.current({ title: 'Google Drive disconnected' });
     };
 
-    /* ── Open Picker (test) ── */
     const handleOpenPicker = useCallback(() => {
         if (!pickerLoaded || !accessToken) {
-            toast({ variant: 'destructive', title: 'Picker not ready or not connected.' });
+            toastRef.current({ variant: 'destructive', title: 'Picker not ready', description: 'Connect Drive first.' });
             return;
         }
         const picker = new window.google.picker.PickerBuilder()
@@ -200,93 +201,118 @@ export default function ConnectorsPage() {
             .setCallback((data: any) => {
                 if (data.action === window.google.picker.Action.PICKED) {
                     const file = data.docs[0];
-                    toast({ title: `Selected: ${file.name}`, description: `ID: ${file.id}` });
+                    toastRef.current({ title: `Selected: ${file.name}`, description: `ID: ${file.id}` });
                 }
             })
             .build();
         picker.setVisible(true);
-    }, [pickerLoaded, accessToken, toast]);
+    }, [pickerLoaded, accessToken]);
 
-    return (
-        <div className="flex flex-col gap-8 max-w-2xl">
-            <PageHeader
-                title="Connectors"
-                description="Connect external tools and services to enhance your workflow."
+    const driveBlock = (
+        <div className="flex flex-col gap-4">
+            {!driveOnly && (
+                <h2 className="text-sm font-semibold text-foreground">Integrations</h2>
+            )}
+            <ConnectorCard
+                icon={<HardDrive className="h-5 w-5 text-blue-600 dark:text-blue-400" />}
+                name="Google Drive"
+                description="Import files into quizzes, notes, and summarizer; save generated work back to Drive."
+                connected={driveConnected}
+                connecting={driveConnecting}
+                email={driveEmail}
+                onConnect={handleConnectDrive}
+                onDisconnect={handleDisconnectDrive}
             />
-
-            {/* Available */}
-            <div className="flex flex-col gap-4">
-                <h2 className="text-sm font-semibold text-foreground">Available</h2>
-
-                <ConnectorCard
-                    icon={<HardDrive className="h-5 w-5 text-blue-500" />}
-                    name="Google Drive"
-                    description="Import files from Drive into AI tools, and save generated content back to Drive."
-                    connected={driveConnected}
-                    connecting={driveConnecting}
-                    email={driveEmail}
-                    onConnect={handleConnectDrive}
-                    onDisconnect={handleDisconnectDrive}
-                />
-
-                {/* Test picker button when connected */}
-                {driveConnected && (
-                    <Button variant="outline" size="sm" className="w-fit gap-2" onClick={handleOpenPicker}>
-                        <FolderOpen className="h-4 w-4" /> Browse Drive Files
-                    </Button>
-                )}
-            </div>
-
-            {/* What you can do */}
             {driveConnected && (
-                <Card className="border-blue-500/20 bg-blue-500/5">
+                <Button variant="outline" size="sm" className="w-fit gap-2" onClick={handleOpenPicker}>
+                    <FolderOpen className="h-4 w-4" /> Browse Drive files
+                </Button>
+            )}
+            {driveConnected && (
+                <Card className={cn(connectorCardClass, 'border-blue-500/25 bg-blue-500/[0.04]')}>
                     <CardHeader className="pb-3">
-                        <CardTitle className="text-sm flex items-center gap-2">
-                            <CheckCircle2 className="h-4 w-4 text-green-500" />
-                            Google Drive is active
+                        <CardTitle className="flex items-center gap-2 text-sm text-foreground">
+                            <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+                            Drive is active
                         </CardTitle>
-                        <CardDescription className="text-xs">
-                            These features are now available across the app:
+                        <CardDescription className="text-xs text-muted-foreground">
+                            Use import actions inside each tool, or save exports where the app offers “Save to Drive”.
                         </CardDescription>
                     </CardHeader>
-                    <CardContent className="pt-0 grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <CardContent className="grid grid-cols-1 gap-2 pt-0 sm:grid-cols-2">
                         {[
-                            { icon: <FolderOpen className="h-3.5 w-3.5" />, text: 'Import PDFs from Drive → Quiz Generator' },
-                            { icon: <FolderOpen className="h-3.5 w-3.5" />, text: 'Import documents → Notes Maker' },
-                            { icon: <FolderOpen className="h-3.5 w-3.5" />, text: 'Import files → Summarizer' },
-                            { icon: <Upload className="h-3.5 w-3.5" />, text: 'Save Notes to Google Drive' },
-                            { icon: <Upload className="h-3.5 w-3.5" />, text: 'Save Essays / Emails / Letters' },
-                            { icon: <Upload className="h-3.5 w-3.5" />, text: 'Export Progress Report PDF' },
+                            { icon: <FolderOpen className="h-3.5 w-3.5" />, text: 'Import PDFs into Quiz / Paper flows' },
+                            { icon: <FolderOpen className="h-3.5 w-3.5" />, text: 'Import documents into Notes Maker' },
+                            { icon: <FolderOpen className="h-3.5 w-3.5" />, text: 'Import files into Summarizer' },
+                            { icon: <Upload className="h-3.5 w-3.5" />, text: 'Save generated notes & exports' },
                         ].map((f, i) => (
                             <div key={i} className="flex items-center gap-2 text-xs text-muted-foreground">
-                                <span className="text-blue-500">{f.icon}</span>
+                                <span className="text-primary">{f.icon}</span>
                                 {f.text}
                             </div>
                         ))}
                     </CardContent>
                 </Card>
             )}
+        </div>
+    );
 
-            {/* Coming soon */}
-            <div className="flex flex-col gap-4">
-                <h2 className="text-sm font-semibold text-foreground">Coming Soon</h2>
-                <div className="grid grid-cols-1 gap-3">
-                    {[
-                        { name: 'Gmail', desc: 'Read and send emails directly from the Email Writer.' },
-                        { name: 'Notion', desc: 'Sync notes and study plans with Notion pages.' },
-                        { name: 'OneDrive', desc: 'Import and export files via Microsoft OneDrive.' },
-                    ].map(c => (
-                        <ConnectorCard
-                            key={c.name}
-                            icon={<HardDrive className="h-5 w-5 text-muted-foreground" />}
-                            name={c.name}
-                            description={c.desc}
-                            connected={false}
-                            comingSoon
-                        />
-                    ))}
-                </div>
+    const comingSoonBlock = (
+        <div className="flex flex-col gap-4">
+            <h2 className="text-sm font-semibold text-foreground">Coming soon</h2>
+            <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
+                {[
+                    { name: 'Gmail', desc: 'Read and send emails from the Email Writer.', icon: <Mail className="h-5 w-5 text-muted-foreground" /> },
+                    { name: 'Notion', desc: 'Sync notes and study plans with Notion.', icon: <FileStack className="h-5 w-5 text-muted-foreground" /> },
+                    { name: 'OneDrive', desc: 'Import and export with Microsoft OneDrive.', icon: <Cloud className="h-5 w-5 text-muted-foreground" /> },
+                ].map(c => (
+                    <ConnectorCard
+                        key={c.name}
+                        icon={c.icon}
+                        name={c.name}
+                        description={c.desc}
+                        connected={false}
+                        comingSoon
+                    />
+                ))}
             </div>
         </div>
+    );
+
+    return (
+        <div className={cn('mx-auto flex w-full max-w-5xl flex-col gap-8', driveOnly && 'max-w-xl')}>
+            <PageHeader
+                title={driveOnly ? 'Google Drive' : 'Connectors'}
+                description={driveOnly
+                    ? 'Connect or manage Google Drive for imports and saves.'
+                    : 'Connect external tools to import content and save your work.'}
+            />
+
+            {driveOnly ? (
+                driveBlock
+            ) : (
+                <div className="grid grid-cols-1 gap-8 lg:grid-cols-12">
+                    <div className="lg:col-span-5">{driveBlock}</div>
+                    <div className="lg:col-span-7">{comingSoonBlock}</div>
+                </div>
+            )}
+        </div>
+    );
+}
+
+function ConnectorsFallback() {
+    return (
+        <div className="mx-auto max-w-5xl space-y-4">
+            <div className="h-10 w-48 animate-pulse rounded-md bg-muted" />
+            <div className="h-24 animate-pulse rounded-xl bg-muted" />
+        </div>
+    );
+}
+
+export default function ConnectorsPage() {
+    return (
+        <Suspense fallback={<ConnectorsFallback />}>
+            <ConnectorsPageInner />
+        </Suspense>
     );
 }

@@ -9,6 +9,7 @@
  */
 
 import { ai } from '@/ai/genkit';
+import { ANTHROPIC_MODEL } from '@/ai/model';
 import { z } from 'genkit';
 
 const GuessPaperInputSchema = z.object({
@@ -48,7 +49,7 @@ export async function generateGuessPaper(input: GuessPaperInput): Promise<GuessP
 
 const prompt = ai.definePrompt({
   name: 'generateGuessPaperPrompt',
-  model: 'googleai/gemini-2.5-flash',
+  model: ANTHROPIC_MODEL,
   input: { schema: GuessPaperInputSchema },
   output: { schema: GuessPaperOutputSchema },
   prompt: `You are an expert exam analyst for high school students. Your task is to analyze a collection of past exam papers for a specific subject and generate a "guess paper" to help a student prepare for their upcoming final exam.

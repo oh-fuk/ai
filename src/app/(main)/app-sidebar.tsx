@@ -4,13 +4,13 @@ import {
   BookOpen, BrainCircuit, CalendarDays, FileText, LayoutDashboard,
   LineChart, PenSquare, Settings, Timer, History, ImageIcon,
   FileSearch, Sigma, BookCopy, MessageCircle, FileCheck,
-  SpellCheck, Briefcase, CheckSquare, Plug, Sparkles, Wrench,
+  SpellCheck, Briefcase, CheckSquare, Plug, Sparkles, Wrench, HardDrive,
 } from "lucide-react";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { SidebarContent, SidebarHeader, SidebarFooter } from "@/components/ui/sidebar";
 import { useNotification } from "@/context/notification-context";
-import { memo, useState } from "react";
+import { memo, useState, useEffect } from "react";
 import { AthenaLogo } from "@/components/app/logo";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
@@ -78,22 +78,38 @@ const navSections: {
       label: "Connectors",
       categoryIcon: Plug,
       items: [
-        { href: "/connectors", label: "Connectors", icon: Plug },
+        { href: "/connectors", label: "All connectors", icon: Plug },
+        { href: "/connectors?section=drive", label: "Google Drive", icon: HardDrive },
       ],
     },
   ];
 
+function navHrefIsActive(pathname: string, search: URLSearchParams, href: string): boolean {
+  const [path, qs] = href.split("?");
+  if (pathname !== path && !pathname.startsWith(path + "/")) return false;
+  if (qs) {
+    const want = new URLSearchParams(qs);
+    for (const [k, v] of want.entries()) {
+      if (search.get(k) !== v) return false;
+    }
+    return true;
+  }
+  if (href === "/connectors" && search.get("section") === "drive") return false;
+  return pathname === path || pathname.startsWith(path + "/");
+}
+
 /* ─── Single nav item ───────────────────────────────────────────────────── */
 function NavItem({
-  item, pathname, collapsed, notificationKey,
+  item, collapsed, notificationKey,
 }: {
   item: { href: string; label: string; icon: NavIcon };
-  pathname: string;
   collapsed: boolean;
   notificationKey?: string;
 }) {
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const { notifications } = useNotification();
-  const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
+  const isActive = navHrefIsActive(pathname, searchParams, item.href);
 
   const inner = (
     <Link
@@ -135,17 +151,18 @@ function NavItem({
 
 /* ─── Category row (collapsed mode) ────────────────────────────────────── */
 function CollapsedCategory({
-  label, icon: Icon, items, pathname, open, onToggle, showLabel = false,
+  label, icon: Icon, items, open, onToggle, showLabel = false,
 }: {
   label: string;
   icon: NavIcon;
   items: { href: string; label: string; icon: NavIcon; notificationKey?: string }[];
-  pathname: string;
   open: boolean;
   onToggle: () => void;
   showLabel?: boolean;
 }) {
-  const isGroupActive = items.some(i => pathname === i.href || pathname.startsWith(i.href + "/"));
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const isGroupActive = items.some((i) => navHrefIsActive(pathname, searchParams, i.href));
 
   return (
     <div className={cn("flex flex-col", showLabel ? "w-full" : "items-center")}>
@@ -191,7 +208,7 @@ function CollapsedCategory({
                   href={item.href}
                   className={cn(
                     "flex items-center gap-2.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-150 w-full",
-                    pathname === item.href || pathname.startsWith(item.href + "/")
+                    navHrefIsActive(pathname, searchParams, item.href)
                       ? "bg-sidebar-accent text-sidebar-primary"
                       : "text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent/60"
                   )}
@@ -200,7 +217,7 @@ function CollapsedCategory({
                   <span className="truncate">{item.label}</span>
                 </Link>
               ) : (
-                <NavItem key={item.href} item={item} pathname={pathname} collapsed notificationKey={(item as any).notificationKey} />
+                <NavItem key={item.href} item={item} collapsed notificationKey={(item as any).notificationKey} />
               )
             ))}
           </motion.div>
@@ -218,6 +235,10 @@ const AppSidebar = memo(function AppSidebar({
 }) {
   const pathname = usePathname();
   const [openCategory, setOpenCategory] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (pathname.startsWith("/connectors")) setOpenCategory("Connectors");
+  }, [pathname]);
 
   const toggleCategory = (label: string) =>
     setOpenCategory(prev => (prev === label ? null : label));
@@ -259,7 +280,7 @@ const AppSidebar = memo(function AppSidebar({
                 return (
                   <div key={si} className={cn("space-y-0.5", collapsed && "flex flex-col items-center w-full")}>
                     {section.items.map(item => (
-                      <NavItem key={item.href} item={item} pathname={pathname} collapsed={collapsed} notificationKey={(item as any).notificationKey} />
+                      <NavItem key={item.href} item={item} collapsed={collapsed} notificationKey={(item as any).notificationKey} />
                     ))}
                   </div>
                 );
@@ -274,7 +295,6 @@ const AppSidebar = memo(function AppSidebar({
                       label={section.label}
                       icon={section.categoryIcon!}
                       items={section.items}
-                      pathname={pathname}
                       open={openCategory === section.label}
                       onToggle={() => toggleCategory(section.label!)}
                       showLabel={false}
@@ -291,7 +311,7 @@ const AppSidebar = memo(function AppSidebar({
                   </p>
                   <div className="space-y-0.5">
                     {section.items.map(item => (
-                      <NavItem key={item.href} item={item} pathname={pathname} collapsed={false} notificationKey={(item as any).notificationKey} />
+                      <NavItem key={item.href} item={item} collapsed={false} notificationKey={(item as any).notificationKey} />
                     ))}
                   </div>
                 </div>
@@ -302,7 +322,7 @@ const AppSidebar = memo(function AppSidebar({
 
         {/* Footer */}
         <SidebarFooter className="flex-shrink-0 px-1.5 py-2 border-t border-sidebar-border">
-          <NavItem item={{ href: "/settings", label: "Settings", icon: Settings }} pathname={pathname} collapsed={collapsed} />
+          <NavItem item={{ href: "/settings", label: "Settings", icon: Settings }} collapsed={collapsed} />
         </SidebarFooter>
       </div>
     </TooltipProvider>

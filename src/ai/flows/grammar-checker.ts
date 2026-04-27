@@ -9,6 +9,7 @@
  */
 
 import { ai } from '@/ai/genkit';
+import { ANTHROPIC_MODEL } from '@/ai/model';
 import { z } from 'genkit';
 
 const GrammarCheckerInputSchema = z.object({
@@ -34,7 +35,7 @@ export async function checkGrammar(input: GrammarCheckerInput): Promise<GrammarC
 
 const prompt = ai.definePrompt({
   name: 'grammarCheckerPrompt',
-  model: 'googleai/gemini-2.5-flash',
+  model: ANTHROPIC_MODEL,
   input: { schema: GrammarCheckerInputSchema },
   output: { schema: GrammarCheckerOutputSchema },
   prompt: `You are an expert grammar and proofreading assistant. Your task is to analyze the following text, identify any grammatical errors, and provide clear corrections and explanations.

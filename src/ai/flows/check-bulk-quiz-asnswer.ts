@@ -10,6 +10,7 @@
  */
 
 import { ai } from '@/ai/genkit';
+import { ANTHROPIC_MODEL } from '@/ai/model';
 import { z } from 'genkit';
 
 const AnswerToCheckSchema = z.object({
@@ -44,7 +45,7 @@ export async function checkBulkQuizAnswers(
 
 const prompt = ai.definePrompt({
   name: 'checkBulkQuizAnswersPrompt',
-  model: 'googleai/gemini-2.5-flash',
+  model: ANTHROPIC_MODEL,
   input: { schema: CheckBulkQuizAnswersInputSchema },
   output: { schema: CheckBulkQuizAnswersOutputSchema },
   prompt: `You are an AI quiz grading assistant. Your task is to evaluate a list of student answers for a multiple-choice quiz.
