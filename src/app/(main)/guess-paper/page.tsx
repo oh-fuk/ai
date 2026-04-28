@@ -27,7 +27,6 @@ import { useRouter } from 'next/navigation';
 import { AiLoadingScreen } from '@/components/app/ai-loading';
 import { DriveImportButton } from '@/components/app/drive-import-button';
 import { useDrive } from '@/hooks/use-drive';
-import { useApplyQueuedDriveImport } from '@/hooks/use-apply-queued-drive-import';
 import { isDriveImportFormValue } from '@/lib/drive-form-file';
 
 const GUESS_PAPER_DRIVE_MIMES = ['application/pdf', 'application/vnd.google-apps.document'];
@@ -81,7 +80,7 @@ export default function GuessPaperPage() {
     );
     const { data: userProfile } = useDoc(userDocRef);
     const [savingGuessPdfToDrive, setSavingGuessPdfToDrive] = useState(false);
-    const { connected: driveConnected, uploadFile, downloadFile } = useDrive();
+    const { connected: driveConnected, uploadFile } = useDrive();
 
     const form = useForm<GuessPaperFormValues>({
         resolver: zodResolver(formSchema),
@@ -89,19 +88,6 @@ export default function GuessPaperPage() {
             subject: '',
             numberOfPapers: 1,
             files: [{ file: new File([], "") }],
-        },
-    });
-
-    useApplyQueuedDriveImport({
-        connected: driveConnected,
-        downloadFile,
-        onApplied: ({ name, mimeType, dataUri }) => {
-            form.setValue('files.0.file', {
-                __driveImport: true,
-                dataUri,
-                name,
-                type: mimeType,
-            } as any);
         },
     });
 

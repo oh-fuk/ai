@@ -26,7 +26,6 @@ import { AiLoadingScreen } from '@/components/app/ai-loading';
 import { extractTextFromImage } from '@/ai/flows/extract-text-from-image';
 import { useRouter } from 'next/navigation';
 import { useDrive } from '@/hooks/use-drive';
-import { useApplyQueuedDriveImport } from '@/hooks/use-apply-queued-drive-import';
 import { hasFormFileValue, isDriveImportFormValue } from '@/lib/drive-form-file';
 
 const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
@@ -93,15 +92,6 @@ export default function SummarizePage() {
             specificTopic: '',
             pageRange: '',
             subject: '',
-        },
-    });
-
-    useApplyQueuedDriveImport({
-        connected: driveConnected,
-        downloadFile,
-        onApplied: ({ name, mimeType, dataUri }) => {
-            form.setValue('file', { __driveImport: true, dataUri, name, type: mimeType } as any);
-            setSummarySource(`from Drive (Connectors): "${name}"`);
         },
     });
 

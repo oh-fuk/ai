@@ -23,7 +23,6 @@ import { AiLoadingScreen } from '@/components/app/ai-loading';
 import { DriveImportButton } from '@/components/app/drive-import-button';
 import PageHeader from '@/components/app/page-header';
 import { useDrive } from '@/hooks/use-drive';
-import { useApplyQueuedDriveImport } from '@/hooks/use-apply-queued-drive-import';
 import { getFormFileDisplayName, hasFormFileValue, isDriveImportFormValue, isPdfLikeMime } from '@/lib/drive-form-file';
 import { Confetti } from '@/components/app/confetti';
 import { DifficultyPredictor } from '@/components/app/difficulty-predictor';
@@ -233,14 +232,6 @@ export default function QuizPage() {
       pageRange: '',
       difficulty: 'medium',
       subject: '',
-    },
-  });
-
-  useApplyQueuedDriveImport({
-    connected: driveConnected,
-    downloadFile,
-    onApplied: ({ name, mimeType, dataUri }) => {
-      form.setValue('file', { __driveImport: true, dataUri, name, type: mimeType } as any);
     },
   });
 

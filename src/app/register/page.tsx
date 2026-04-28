@@ -43,6 +43,7 @@ export default function RegisterPage() {
             id: user.uid,
             email: user.email || '',
             hasCompletedOnboarding: false, // This is key
+            hasSeenAppTour: false,
             username: user.email?.split('@')[0] || `user_${user.uid.substring(0, 6)}`,
             // Initialize other fields as empty
             fullName: user.displayName || '',

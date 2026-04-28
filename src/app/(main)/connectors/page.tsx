@@ -2,6 +2,7 @@
 
 import { Suspense, useState, useEffect, useCallback, useRef } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { useUser, useFirestore, useMemoFirebase, useDoc } from '@/firebase';
 import { doc, updateDoc } from 'firebase/firestore';
 import PageHeader from '@/components/app/page-header';
@@ -11,7 +12,7 @@ import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import {
     HardDrive, CheckCircle2, XCircle, Loader, ExternalLink,
-    FolderOpen, Upload, Unplug, Mail, FileStack, Cloud,
+    FolderOpen, Upload, Unplug, Mail, FileStack, Cloud, ArrowLeft, ChevronRight,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
@@ -19,10 +20,12 @@ import {
     GOOGLE_DRIVE_SCOPE_STRING,
     requestGoogleDriveAccessTokenSilent,
 } from '@/lib/google-drive-picker';
-import { setDriveImportQueue, DRIVE_IMPORT_DESTINATIONS, type QueuedDriveFile } from '@/lib/drive-import-queue';
 
 const GOOGLE_CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || '';
 const GOOGLE_PICKER_API_KEY = process.env.NEXT_PUBLIC_GOOGLE_PICKER_API_KEY || '';
+
+const CONNECTOR_SLUGS = ['drive', 'gmail', 'notion', 'onedrive'] as const;
+type ConnectorSlug = (typeof CONNECTOR_SLUGS)[number];
 
 declare global {
     interface Window { google: any; gapi: any; }
@@ -42,7 +45,44 @@ function loadScript(src: string): Promise<void> {
 const connectorCardClass =
     'border border-border/80 bg-card text-card-foreground shadow-sm transition-colors hover:border-primary/25 hover:shadow-md';
 
-function ConnectorCard({
+const HUB_CARDS: {
+    slug: ConnectorSlug;
+    name: string;
+    description: string;
+    icon: React.ReactNode;
+    available: boolean;
+}[] = [
+    {
+        slug: 'drive',
+        name: 'Google Drive',
+        description: 'Link your account, browse files, then import inside each study tool.',
+        icon: <HardDrive className="h-6 w-6 text-blue-600 dark:text-blue-400" />,
+        available: true,
+    },
+    {
+        slug: 'gmail',
+        name: 'Gmail',
+        description: 'Read and send email from writing tools (planned).',
+        icon: <Mail className="h-6 w-6 text-muted-foreground" />,
+        available: false,
+    },
+    {
+        slug: 'notion',
+        name: 'Notion',
+        description: 'Sync notes and plans with Notion (planned).',
+        icon: <FileStack className="h-6 w-6 text-muted-foreground" />,
+        available: false,
+    },
+    {
+        slug: 'onedrive',
+        name: 'OneDrive',
+        description: 'Import and export with Microsoft OneDrive (planned).',
+        icon: <Cloud className="h-6 w-6 text-muted-foreground" />,
+        available: false,
+    },
+];
+
+function ConnectorDetailCard({
     icon, name, description, connected, connecting, email,
     onConnect, onDisconnect, comingSoon,
 }: {
@@ -92,8 +132,10 @@ function ConnectorCard({
 function ConnectorsPageInner() {
     const searchParams = useSearchParams();
     const router = useRouter();
-    const section = searchParams.get('section');
-    const driveOnly = section === 'drive';
+    const rawSection = searchParams.get('section');
+    const section: ConnectorSlug | null = CONNECTOR_SLUGS.includes(rawSection as ConnectorSlug)
+        ? (rawSection as ConnectorSlug)
+        : null;
 
     const { user } = useUser();
     const firestore = useFirestore();
@@ -107,7 +149,6 @@ function ConnectorsPageInner() {
     const [accessToken, setAccessToken] = useState('');
     const [scriptsLoaded, setScriptsLoaded] = useState(false);
     const [pickerLoaded, setPickerLoaded] = useState(false);
-    const [pickedFromDrive, setPickedFromDrive] = useState<QueuedDriveFile | null>(null);
 
     const userDocRef = useMemoFirebase(
         () => (user ? doc(firestore, 'users', user.uid) : null),
@@ -124,6 +165,7 @@ function ConnectorsPageInner() {
     }, [userProfile]);
 
     useEffect(() => {
+        if (section !== 'drive') return;
         Promise.all([
             loadScript('https://accounts.google.com/gsi/client'),
             loadScript('https://apis.google.com/js/api.js'),
@@ -131,7 +173,7 @@ function ConnectorsPageInner() {
             setScriptsLoaded(true);
             window.gapi.load('picker', () => setPickerLoaded(true));
         }).catch(() => toastRef.current({ variant: 'destructive', title: 'Failed to load Google scripts' }));
-    }, []);
+    }, [section]);
 
     const handleConnectDrive = useCallback(async () => {
         if (!scriptsLoaded) {
@@ -202,7 +244,7 @@ function ConnectorsPageInner() {
             toastRef.current({
                 variant: 'destructive',
                 title: 'Google Picker is not configured',
-                description: 'In Vercel → Environment Variables, set NEXT_PUBLIC_GOOGLE_PICKER_API_KEY. In Google Cloud, enable Picker API + Drive API and restrict the API key by HTTP referrer (include https://ai-amber-omega.vercel.app/* or https://*.vercel.app/*).',
+                description: 'Set NEXT_PUBLIC_GOOGLE_PICKER_API_KEY and enable Picker + Drive APIs in Google Cloud.',
             });
             return;
         }
@@ -238,11 +280,9 @@ function ConnectorsPageInner() {
             .setCallback((data: { action?: string; docs?: Array<{ id: string; name: string; mimeType?: string }>; error?: string }) => {
                 if (data.action === window.google.picker.Action.PICKED && data.docs?.[0]) {
                     const file = data.docs[0];
-                    const mimeType = file.mimeType || 'application/pdf';
-                    setPickedFromDrive({ id: file.id, name: file.name, mimeType });
                     toastRef.current({
                         title: `Selected: ${file.name}`,
-                        description: 'Choose a tool below to import this file, or pick another file.',
+                        description: 'To use this file in a tool, open Summarize, Notes, Quiz, etc. and tap Import from Drive.',
                     });
                     return;
                 }
@@ -260,15 +300,21 @@ function ConnectorsPageInner() {
         builder.build().setVisible(true);
     }, [pickerLoaded, accessToken, userDocRef]);
 
-    const driveBlock = (
+    const backToHub = (
+        <Button variant="ghost" size="sm" className="mb-2 -ml-2 w-fit gap-1 text-muted-foreground" asChild>
+            <Link href="/connectors">
+                <ArrowLeft className="h-4 w-4" /> All connectors
+            </Link>
+        </Button>
+    );
+
+    const driveDetail = (
         <div className="flex flex-col gap-4">
-            {!driveOnly && (
-                <h2 className="text-sm font-semibold text-foreground">Integrations</h2>
-            )}
-            <ConnectorCard
+            {backToHub}
+            <ConnectorDetailCard
                 icon={<HardDrive className="h-5 w-5 text-blue-600 dark:text-blue-400" />}
                 name="Google Drive"
-                description="Import files into quizzes, notes, and summarizer; save generated work back to Drive."
+                description="Connect your account, browse files here, then import inside each tool with Import from Drive."
                 connected={driveConnected}
                 connecting={driveConnecting}
                 email={driveEmail}
@@ -280,39 +326,6 @@ function ConnectorsPageInner() {
                     <FolderOpen className="h-4 w-4" /> Browse Drive files
                 </Button>
             )}
-            {driveConnected && pickedFromDrive && (
-                <Card className={cn(connectorCardClass, 'border-primary/30')}>
-                    <CardHeader className="pb-2">
-                        <CardTitle className="text-sm">Import into a tool</CardTitle>
-                        <CardDescription className="text-xs">
-                            <span className="font-medium text-foreground">{pickedFromDrive.name}</span>
-                            {' — '}pick where to send it. You can also use <strong>Import from Drive</strong> inside each page.
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent className="flex flex-col gap-2 pt-0">
-                        <div className="flex flex-wrap gap-2">
-                            {DRIVE_IMPORT_DESTINATIONS.map((d) => (
-                                <Button
-                                    key={d.href}
-                                    type="button"
-                                    variant="secondary"
-                                    size="sm"
-                                    className="text-xs"
-                                    onClick={() => {
-                                        setDriveImportQueue(pickedFromDrive);
-                                        router.push(`${d.href}?applyDrive=1`);
-                                    }}
-                                >
-                                    {d.label}
-                                </Button>
-                            ))}
-                        </div>
-                        <Button type="button" variant="ghost" size="sm" className="h-8 w-fit text-xs" onClick={() => setPickedFromDrive(null)}>
-                            Clear selection
-                        </Button>
-                    </CardContent>
-                </Card>
-            )}
             {driveConnected && (
                 <Card className={cn(connectorCardClass, 'border-blue-500/25 bg-blue-500/[0.04]')}>
                     <CardHeader className="pb-3">
@@ -321,7 +334,7 @@ function ConnectorsPageInner() {
                             Drive is active
                         </CardTitle>
                         <CardDescription className="text-xs text-muted-foreground">
-                            After <strong>Browse Drive files</strong>, use <strong>Import into a tool</strong> above, or open any tool and use <strong>Import from Drive</strong> there. Save outputs with <strong>Save to Drive</strong> where available.
+                            Use <strong>Browse Drive files</strong> to preview files. To import into Summarize, Quiz, Notes, and more, open that tool and use <strong>Import from Drive</strong>. Save outputs with <strong>Save to Drive</strong> where available.
                         </CardDescription>
                     </CardHeader>
                     <CardContent className="grid grid-cols-1 gap-2 pt-0 sm:grid-cols-2">
@@ -342,45 +355,127 @@ function ConnectorsPageInner() {
         </div>
     );
 
-    const comingSoonBlock = (
+    const comingSoonDetail = (name: string, description: string, icon: React.ReactNode) => (
         <div className="flex flex-col gap-4">
-            <h2 className="text-sm font-semibold text-foreground">Coming soon</h2>
-            <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
-                {[
-                    { name: 'Gmail', desc: 'Read and send emails from the Email Writer.', icon: <Mail className="h-5 w-5 text-muted-foreground" /> },
-                    { name: 'Notion', desc: 'Sync notes and study plans with Notion.', icon: <FileStack className="h-5 w-5 text-muted-foreground" /> },
-                    { name: 'OneDrive', desc: 'Import and export with Microsoft OneDrive.', icon: <Cloud className="h-5 w-5 text-muted-foreground" /> },
-                ].map(c => (
-                    <ConnectorCard
-                        key={c.name}
-                        icon={c.icon}
-                        name={c.name}
-                        description={c.desc}
-                        connected={false}
-                        comingSoon
-                    />
-                ))}
-            </div>
+            {backToHub}
+            <ConnectorDetailCard
+                icon={icon}
+                name={name}
+                description={description}
+                connected={false}
+                comingSoon
+            />
+            <p className="text-sm text-muted-foreground">
+                We&apos;re working on this integration. You can still use every AthenaAI tool with uploads and paste — no connector required.
+            </p>
         </div>
     );
 
-    return (
-        <div className={cn('mx-auto flex w-full max-w-5xl flex-col gap-8', driveOnly && 'max-w-xl')}>
-            <PageHeader
-                title={driveOnly ? 'Google Drive' : 'Connectors'}
-                description={driveOnly
-                    ? 'Connect or manage Google Drive for imports and saves.'
-                    : 'Connect external tools to import content and save your work.'}
-            />
+    if (section === 'drive') {
+        return (
+            <div className="mx-auto flex w-full max-w-xl flex-col gap-6">
+                <PageHeader
+                    title="Google Drive"
+                    description="Connect, browse, and manage Drive. Import files from inside each study tool."
+                />
+                {driveDetail}
+            </div>
+        );
+    }
 
-            {driveOnly ? (
-                driveBlock
-            ) : (
-                <div className="grid grid-cols-1 gap-8 lg:grid-cols-12">
-                    <div className="lg:col-span-5">{driveBlock}</div>
-                    <div className="lg:col-span-7">{comingSoonBlock}</div>
-                </div>
-            )}
+    if (section === 'gmail') {
+        return (
+            <div className="mx-auto flex w-full max-w-xl flex-col gap-6">
+                <PageHeader title="Gmail" description="Connector details" />
+                {comingSoonDetail(
+                    'Gmail',
+                    'Read and send emails from the Email Writer.',
+                    <Mail className="h-5 w-5 text-muted-foreground" />
+                )}
+            </div>
+        );
+    }
+
+    if (section === 'notion') {
+        return (
+            <div className="mx-auto flex w-full max-w-xl flex-col gap-6">
+                <PageHeader title="Notion" description="Connector details" />
+                {comingSoonDetail(
+                    'Notion',
+                    'Sync notes and study plans with Notion.',
+                    <FileStack className="h-5 w-5 text-muted-foreground" />
+                )}
+            </div>
+        );
+    }
+
+    if (section === 'onedrive') {
+        return (
+            <div className="mx-auto flex w-full max-w-xl flex-col gap-6">
+                <PageHeader title="OneDrive" description="Connector details" />
+                {comingSoonDetail(
+                    'OneDrive',
+                    'Import and export with Microsoft OneDrive.',
+                    <Cloud className="h-5 w-5 text-muted-foreground" />
+                )}
+            </div>
+        );
+    }
+
+    /* Hub: two cards per row */
+    return (
+        <div className="mx-auto flex w-full max-w-4xl flex-col gap-8">
+            <PageHeader
+                title="Connectors"
+                description="Choose an integration to open its page. Available connectors let you connect and manage accounts; coming soon items show what’s planned."
+            />
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                {HUB_CARDS.map((c) => (
+                    <Card
+                        key={c.slug}
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => router.push(`/connectors?section=${c.slug}`)}
+                        onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                                e.preventDefault();
+                                router.push(`/connectors?section=${c.slug}`);
+                            }
+                        }}
+                        className={cn(
+                            connectorCardClass,
+                            'cursor-pointer hover:shadow-md hover:border-primary/30 transition-shadow',
+                            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2'
+                        )}
+                    >
+                        <CardHeader className="pb-2">
+                            <div className="flex items-start justify-between gap-3">
+                                <div className="flex items-center gap-3">
+                                    <div className="rounded-xl bg-muted/80 p-2.5 ring-1 ring-border/60">{c.icon}</div>
+                                    <div>
+                                        <CardTitle className="text-base">{c.name}</CardTitle>
+                                        <Badge
+                                            variant={c.available ? 'default' : 'secondary'}
+                                            className={cn('mt-1.5 text-[10px]', c.available && 'bg-emerald-600 hover:bg-emerald-700')}
+                                        >
+                                            {c.available ? 'Available' : 'Coming soon'}
+                                        </Badge>
+                                    </div>
+                                </div>
+                                <ChevronRight className="mt-1 h-5 w-5 shrink-0 text-muted-foreground" />
+                            </div>
+                            <CardDescription className="pt-2 text-xs leading-relaxed">
+                                {c.description}
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent className="pt-0">
+                            <p className="text-xs font-medium text-primary">
+                                {c.available ? 'Open to connect & browse' : 'View details'}
+                            </p>
+                        </CardContent>
+                    </Card>
+                ))}
+            </div>
         </div>
     );
 }
@@ -389,7 +484,10 @@ function ConnectorsFallback() {
     return (
         <div className="mx-auto max-w-5xl space-y-4">
             <div className="h-10 w-48 animate-pulse rounded-md bg-muted" />
-            <div className="h-24 animate-pulse rounded-xl bg-muted" />
+            <div className="grid grid-cols-2 gap-4">
+                <div className="h-28 animate-pulse rounded-xl bg-muted" />
+                <div className="h-28 animate-pulse rounded-xl bg-muted" />
+            </div>
         </div>
     );
 }

@@ -8,6 +8,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect, memo, useState } from 'react';
 import { Loader, PanelLeftOpen, PanelLeftClose } from 'lucide-react';
 import { ThemeToggler } from "@/components/app/theme-toggler";
+import { AppTourProvider } from '@/components/app/app-tour';
 import { NotificationProvider } from "@/context/notification-context";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
@@ -62,6 +63,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <AuthGuard>
+      <AppTourProvider>
       <NotificationProvider>
         <SidebarProvider defaultOpen={true}>
           <div className="flex h-screen w-full overflow-hidden bg-background">
@@ -102,7 +104,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                   >
                     {collapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
                   </Button>
-                  <div className="flex items-center gap-2">
+                  <div id="onborda-header-controls" className="flex items-center gap-2">
                     <ThemeToggler />
                     <Link href="/profile" className="group">
                       <Avatar className="h-8 w-8 ring-2 ring-transparent group-hover:ring-primary/40 transition-all duration-200">
@@ -142,6 +144,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         </SidebarProvider>
         <MusicPlayer />
       </NotificationProvider>
+      </AppTourProvider>
     </AuthGuard>
   );
 }
