@@ -27,6 +27,7 @@ import { extractTextFromPdf } from '@/ai/flows/extract-text-from-pdf';
 import { useRouter } from 'next/navigation';
 import { DriveImportButton } from '@/components/app/drive-import-button';
 import { useDrive } from '@/hooks/use-drive';
+import { useApplyQueuedDriveImport } from '@/hooks/use-apply-queued-drive-import';
 import { getFormFileDisplayName, hasFormFileValue, isDriveImportFormValue, isPdfLikeMime } from '@/lib/drive-form-file';
 
 
@@ -82,7 +83,7 @@ export default function PlannerPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [studyPlan, setStudyPlan] = useState<StudyPlanResult | null>(null);
   const [savingPlanPdfToDrive, setSavingPlanPdfToDrive] = useState(false);
-  const { connected: driveConnected, uploadFile } = useDrive();
+  const { connected: driveConnected, uploadFile, downloadFile } = useDrive();
   const { toast } = useToast();
   const { user } = useUser();
   const firestore = useFirestore();
@@ -110,6 +111,14 @@ export default function PlannerPage() {
       specificTopic: '',
       pageRange: '',
       subject: '',
+    },
+  });
+
+  useApplyQueuedDriveImport({
+    connected: driveConnected,
+    downloadFile,
+    onApplied: ({ name, mimeType, dataUri }) => {
+      form.setValue('file', { __driveImport: true, dataUri, name, type: mimeType } as any);
     },
   });
 

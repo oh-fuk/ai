@@ -31,6 +31,7 @@ import { useRouter } from 'next/navigation';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { DriveImportButton } from '@/components/app/drive-import-button';
 import { useDrive } from '@/hooks/use-drive';
+import { useApplyQueuedDriveImport } from '@/hooks/use-apply-queued-drive-import';
 import { getFormFileDisplayName, hasFormFileValue, isDriveImportFormValue, isPdfLikeMime } from '@/lib/drive-form-file';
 
 
@@ -602,7 +603,7 @@ export default function NotesMakerPage() {
     const [keywordsCollapsed, setKeywordsCollapsed] = useState(false);
     const [isExtractingKeywords, setIsExtractingKeywords] = useState(false);
     const [savingToDrive, setSavingToDrive] = useState(false);
-    const { connected: driveConnected, uploadFile } = useDrive();
+    const { connected: driveConnected, uploadFile, downloadFile } = useDrive();
     const { toast } = useToast();
     const { user } = useUser();
     const firestore = useFirestore();
@@ -633,8 +634,23 @@ export default function NotesMakerPage() {
         },
     });
 
-
-
+    useApplyQueuedDriveImport({
+        connected: driveConnected,
+        downloadFile,
+        onApplied: ({ name, mimeType, dataUri }) => {
+            form.setValue('generationType', 'document');
+            form.setValue('file', { __driveImport: true, dataUri, name, type: mimeType } as any);
+            if (mimeType.startsWith('image/')) {
+                setPreviewImage(dataUri);
+                setRotatedImageDataUri(dataUri);
+                setRotationDeg(0);
+            } else {
+                setPreviewImage(null);
+                setRotatedImageDataUri(null);
+                setRotationDeg(0);
+            }
+        },
+    });
 
 
 

@@ -1,7 +1,7 @@
 'use client';
 
 import { Suspense, useState, useEffect, useCallback, useRef } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { useUser, useFirestore, useMemoFirebase, useDoc } from '@/firebase';
 import { doc, updateDoc } from 'firebase/firestore';
 import PageHeader from '@/components/app/page-header';
@@ -19,6 +19,7 @@ import {
     GOOGLE_DRIVE_SCOPE_STRING,
     requestGoogleDriveAccessTokenSilent,
 } from '@/lib/google-drive-picker';
+import { setDriveImportQueue, DRIVE_IMPORT_DESTINATIONS, type QueuedDriveFile } from '@/lib/drive-import-queue';
 
 const GOOGLE_CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || '';
 const GOOGLE_PICKER_API_KEY = process.env.NEXT_PUBLIC_GOOGLE_PICKER_API_KEY || '';
@@ -90,6 +91,7 @@ function ConnectorCard({
 
 function ConnectorsPageInner() {
     const searchParams = useSearchParams();
+    const router = useRouter();
     const section = searchParams.get('section');
     const driveOnly = section === 'drive';
 
@@ -105,6 +107,7 @@ function ConnectorsPageInner() {
     const [accessToken, setAccessToken] = useState('');
     const [scriptsLoaded, setScriptsLoaded] = useState(false);
     const [pickerLoaded, setPickerLoaded] = useState(false);
+    const [pickedFromDrive, setPickedFromDrive] = useState<QueuedDriveFile | null>(null);
 
     const userDocRef = useMemoFirebase(
         () => (user ? doc(firestore, 'users', user.uid) : null),
@@ -232,10 +235,15 @@ function ConnectorsPageInner() {
             .setOAuthToken(tokenForPicker)
             .setDeveloperKey(GOOGLE_PICKER_API_KEY)
             .setTitle('Browse Google Drive')
-            .setCallback((data: { action?: string; docs?: Array<{ id: string; name: string }>; error?: string }) => {
+            .setCallback((data: { action?: string; docs?: Array<{ id: string; name: string; mimeType?: string }>; error?: string }) => {
                 if (data.action === window.google.picker.Action.PICKED && data.docs?.[0]) {
                     const file = data.docs[0];
-                    toastRef.current({ title: `Selected: ${file.name}`, description: `ID: ${file.id}` });
+                    const mimeType = file.mimeType || 'application/pdf';
+                    setPickedFromDrive({ id: file.id, name: file.name, mimeType });
+                    toastRef.current({
+                        title: `Selected: ${file.name}`,
+                        description: 'Choose a tool below to import this file, or pick another file.',
+                    });
                     return;
                 }
                 if (data.action === window.google.picker.Action.CANCEL) return;
@@ -268,9 +276,42 @@ function ConnectorsPageInner() {
                 onDisconnect={handleDisconnectDrive}
             />
             {driveConnected && (
-                <Button variant="outline" size="sm" className="w-fit gap-2" onClick={handleOpenPicker}>
+                <Button variant="outline" size="sm" className="w-fit gap-2" onClick={() => void handleOpenPicker()}>
                     <FolderOpen className="h-4 w-4" /> Browse Drive files
                 </Button>
+            )}
+            {driveConnected && pickedFromDrive && (
+                <Card className={cn(connectorCardClass, 'border-primary/30')}>
+                    <CardHeader className="pb-2">
+                        <CardTitle className="text-sm">Import into a tool</CardTitle>
+                        <CardDescription className="text-xs">
+                            <span className="font-medium text-foreground">{pickedFromDrive.name}</span>
+                            {' — '}pick where to send it. You can also use <strong>Import from Drive</strong> inside each page.
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent className="flex flex-col gap-2 pt-0">
+                        <div className="flex flex-wrap gap-2">
+                            {DRIVE_IMPORT_DESTINATIONS.map((d) => (
+                                <Button
+                                    key={d.href}
+                                    type="button"
+                                    variant="secondary"
+                                    size="sm"
+                                    className="text-xs"
+                                    onClick={() => {
+                                        setDriveImportQueue(pickedFromDrive);
+                                        router.push(`${d.href}?applyDrive=1`);
+                                    }}
+                                >
+                                    {d.label}
+                                </Button>
+                            ))}
+                        </div>
+                        <Button type="button" variant="ghost" size="sm" className="h-8 w-fit text-xs" onClick={() => setPickedFromDrive(null)}>
+                            Clear selection
+                        </Button>
+                    </CardContent>
+                </Card>
             )}
             {driveConnected && (
                 <Card className={cn(connectorCardClass, 'border-blue-500/25 bg-blue-500/[0.04]')}>
@@ -280,7 +321,7 @@ function ConnectorsPageInner() {
                             Drive is active
                         </CardTitle>
                         <CardDescription className="text-xs text-muted-foreground">
-                            Use import actions inside each tool, or save exports where the app offers “Save to Drive”.
+                            After <strong>Browse Drive files</strong>, use <strong>Import into a tool</strong> above, or open any tool and use <strong>Import from Drive</strong> there. Save outputs with <strong>Save to Drive</strong> where available.
                         </CardDescription>
                     </CardHeader>
                     <CardContent className="grid grid-cols-1 gap-2 pt-0 sm:grid-cols-2">

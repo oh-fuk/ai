@@ -34,6 +34,7 @@ import {
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
 import { useDrive } from '@/hooks/use-drive';
+import { useApplyQueuedDriveImport } from '@/hooks/use-apply-queued-drive-import';
 import { DRIVE_PICKER_MIME_TYPES, isPdfLikeMime } from '@/lib/drive-form-file';
 
 /* ─── Types ─────────────────────────────────────────────────────────────── */
@@ -245,6 +246,30 @@ export default function ChatPage() {
   const { data: tasks } = useCollection(tasksQuery);
   const userDocRef = useMemoFirebase(() => (user ? doc(firestore, 'users', user.uid) : null), [user, firestore]);
   const { data: userProfile } = useDoc(userDocRef);
+
+  useApplyQueuedDriveImport({
+    connected: driveConnected,
+    downloadFile,
+    onApplied: async ({ name, mimeType, dataUri }) => {
+      const subjHint =
+        (subjects?.[0] as { name?: string } | undefined)?.name ||
+        (userProfile as { class?: string } | undefined)?.class ||
+        'General';
+      let extractedText = '';
+      if (mimeType.startsWith('image/')) {
+        const r = await extractTextFromImage({ imageDataUri: dataUri, subject: subjHint });
+        extractedText = r.extractedText || '';
+        if (!extractedText) throw new Error(r.reasoning || 'Could not read text from image');
+      } else if (isPdfLikeMime(mimeType)) {
+        const r = await extractTextFromPdf({ pdfDataUri: dataUri });
+        extractedText = r.extractedText || '';
+        if (!extractedText) throw new Error('No extractable text in this PDF.');
+      } else {
+        throw new Error('Use a PDF, Google Doc, or image for chat.');
+      }
+      setDriveAttachment({ name, extractedText });
+    },
+  });
 
   // ── Load last session on mount ──
   useEffect(() => {

@@ -19,6 +19,7 @@ import { AiLoadingScreen } from '@/components/app/ai-loading';
 import { DriveImportButton } from '@/components/app/drive-import-button';
 import PageHeader from '@/components/app/page-header';
 import { useDrive } from '@/hooks/use-drive';
+import { useApplyQueuedDriveImport } from '@/hooks/use-apply-queued-drive-import';
 import { getFormFileDisplayName, hasFormFileValue, isDriveImportFormValue, isPdfLikeMime } from '@/lib/drive-form-file';
 import { generatePaperFromPrompt } from '@/ai/flows/generate-paper-from-prompt';
 import { generateRemedialPaper } from '@/ai/flows/generate-remedial-paper';
@@ -275,7 +276,7 @@ export default function PaperGeneratorPage() {
     const [paperResultsLoading, setPaperResultsLoading] = useState(true);
     const [savingQuestionPdfToDrive, setSavingQuestionPdfToDrive] = useState(false);
     const [savingResultsPdfToDrive, setSavingResultsPdfToDrive] = useState(false);
-    const { connected: driveConnected, uploadFile } = useDrive();
+    const { connected: driveConnected, uploadFile, downloadFile } = useDrive();
 
     const subjectsQuery = useMemoFirebase(
         () => (user ? collection(firestore, 'users', user.uid, 'subjects') : null),
@@ -326,6 +327,14 @@ export default function PaperGeneratorPage() {
             shortMarks: 5,
             longMarks: 10,
             subject: '',
+        },
+    });
+
+    useApplyQueuedDriveImport({
+        connected: driveConnected,
+        downloadFile,
+        onApplied: ({ name, mimeType, dataUri }) => {
+            form.setValue('file', { __driveImport: true, dataUri, name, type: mimeType } as any);
         },
     });
 
