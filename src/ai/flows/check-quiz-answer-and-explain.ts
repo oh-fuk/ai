@@ -9,7 +9,7 @@
  */
 
 import { ai } from '@/ai/genkit';
-import { ANTHROPIC_MODEL } from '@/ai/model';
+import { GEMINI_MODEL } from '@/ai/model';
 import { z } from 'genkit';
 
 const CheckQuizAnswerAndExplainInputSchema = z.object({
@@ -39,7 +39,7 @@ export async function checkQuizAnswerAndExplain(
 
 const prompt = ai.definePrompt({
   name: 'checkQuizAnswerAndExplainPrompt',
-  model: ANTHROPIC_MODEL,
+  model: GEMINI_MODEL,
   input: { schema: CheckQuizAnswerAndExplainInputSchema },
   output: { schema: CheckQuizAnswerAndExplainOutputSchema },
   prompt: `You are an AI quiz checker that helps students understand their mistakes.

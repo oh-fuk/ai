@@ -8,7 +8,7 @@
  */
 
 import { ai } from '@/ai/genkit';
-import { ANTHROPIC_MODEL } from '@/ai/model';
+import { GEMINI_MODEL } from '@/ai/model';
 import { z } from 'genkit';
 
 const ExplainTermsInputSchema = z.object({
@@ -35,7 +35,7 @@ export async function explainTerms(input: ExplainTermsInput): Promise<ExplainTer
 
 const prompt = ai.definePrompt({
     name: 'explainTermsPrompt',
-    model: ANTHROPIC_MODEL,
+    model: GEMINI_MODEL,
     input: { schema: ExplainTermsInputSchema },
     output: { schema: ExplainTermsOutputSchema },
     prompt: `You are an expert educator. Your task is to explain the provided terms clearly and simply so a student can understand them.

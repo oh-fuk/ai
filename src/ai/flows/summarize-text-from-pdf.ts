@@ -8,7 +8,7 @@
  */
 
 import { ai } from '@/ai/genkit';
-import { ANTHROPIC_MODEL } from '@/ai/model';
+import { GEMINI_MODEL } from '@/ai/model';
 import { z } from 'genkit';
 
 const SummarizeTextInputSchema = z.object({
@@ -36,7 +36,7 @@ export async function summarizeText(input: SummarizeTextInput): Promise<Summariz
 
 const prompt = ai.definePrompt({
   name: 'summarizeTextPrompt',
-  model: ANTHROPIC_MODEL,
+  model: GEMINI_MODEL,
   input: { schema: SummarizeTextInputSchema },
   output: { schema: SummarizeTextOutputSchema },
   prompt: `Summarize the following content. IMPORTANT: Do not use any special characters or symbols in your response.

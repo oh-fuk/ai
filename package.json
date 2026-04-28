@@ -14,8 +14,8 @@
     "postinstall": "patch-package"
   },
   "dependencies": {
-    "@genkit-ai/anthropic": "^0.2.0",
-    "@genkit-ai/next": "^1.32.0",
+    "@genkit-ai/google-genai": "^1.33.0",
+    "@genkit-ai/next": "^1.33.0",
     "@hookform/resolvers": "^4.1.3",
     "@opentelemetry/exporter-jaeger": "^1.30.0",
     "@radix-ui/react-accordion": "^1.2.3",
@@ -51,7 +51,7 @@
     "firebase": "^11.9.1",
     "firebase-admin": "^12.3.0",
     "framer-motion": "^11.5.1",
-    "genkit": "^1.32.0",
+    "genkit": "^1.33.0",
     "html-to-image": "^1.11.11",
     "jspdf": "^2.5.1",
     "jspdf-autotable": "^3.8.2",

@@ -1,6 +1,6 @@
 # AthenaAI StudyBuddy
 
-AthenaAI StudyBuddy is a **student-facing web application** that combines **Firebase** (authentication, profile data, storage) with **Anthropic Claude** (via **Genkit**) to help learners chat with an AI tutor, generate quizzes and exam papers, summarize and analyze documents, plan study time, track progress, and manage tasks. The UI is built with **Next.js 15** (App Router), **React 19**, **Tailwind CSS**, and **Radix** primitives.
+AthenaAI StudyBuddy is a **student-facing web application** that combines **Firebase** (authentication, profile data, storage) with **Google Gemini** (via **Genkit** and `@genkit-ai/google-genai`) to help learners chat with an AI tutor, generate quizzes and exam papers, summarize and analyze documents, plan study time, track progress, and manage tasks. The UI is built with **Next.js 15** (App Router), **React 19**, **Tailwind CSS**, and **Radix** primitives.
 
 This document is a **full product and technical overview**: what the app is for, how each major area works, how Google Drive fits in, and how to run and deploy the project.
 
@@ -31,7 +31,7 @@ New accounts created via **Register** get a profile document in Firestore, compl
 | Framework               | Next.js 15 (App Router), TypeScript                                                      |
 | UI                      | React 19, Tailwind CSS, Radix UI, Framer Motion, Lucide icons, Recharts (progress)       |
 | Auth & data             | Firebase Auth, Firestore, Firebase Storage                                               |
-| AI                      | Genkit, `@genkit-ai/anthropic`, `ANTHROPIC_API_KEY`, optional `ANTHROPIC_MODEL`          |
+| AI                      | Genkit, `@genkit-ai/google-genai`, `GEMINI_API_KEY`, optional `GEMINI_MODEL`             |
 | Google Drive (optional) | Google Identity Services (OAuth token client), Google Picker, Drive REST from the client |
 
 
@@ -159,8 +159,8 @@ If `FIREBASE_CONFIG` is set (e.g. App Hosting), the Firebase client may parse JS
 
 ### AI
 
-- `ANTHROPIC_API_KEY` (required for Claude features)
-- `ANTHROPIC_MODEL` (optional; default in `src/ai/model.ts`)
+- `GEMINI_API_KEY` (required for Gemini; create at [Google AI Studio](https://aistudio.google.com/apikey))
+- `GEMINI_MODEL` (optional; default `googleai/gemini-2.5-flash` in `src/ai/model.ts`)
 
 ### Google Drive (optional)
 
@@ -216,7 +216,7 @@ Short marketing-style feature list (duplicate summary): [src/README.md](./src/RE
 
 - **Firestore rules** must ensure users only read/write their own `users/{uid}` and subcollections.
 - **Google tokens** for Drive are stored on the user document for client-side API calls; restrict API keys by **HTTP referrer**; prefer least-privilege OAuth scopes (see Drive README).
-- **Anthropic API key** is **server-side** only; do not expose as `NEXT_PUBLIC_`*.
+- **Gemini API key** (`GEMINI_API_KEY`) is **server-side** only; do not expose as `NEXT_PUBLIC_*`.
 
 ---
 

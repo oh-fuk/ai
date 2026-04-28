@@ -9,10 +9,10 @@
  */
 
 import { ai } from '@/ai/genkit';
-import { ANTHROPIC_MODEL } from '@/ai/model';
+import { GEMINI_MODEL } from '@/ai/model';
 import { z } from 'genkit';
 import { getTodayStudyTask } from '@/ai/tools/get-study-plan-task';
-import { hasAnthropicApiKey, anthropicConfigErrorMessage } from '@/lib/anthropic-env';
+import { hasGeminiApiKey, geminiConfigErrorMessage } from '@/lib/gemini-env';
 
 // Define the structure for a single message in the chat history
 const ChatMessageSchema = z.object({
@@ -34,8 +34,8 @@ const GenerateChatResponseOutputSchema = z.string().describe("The AI's generated
 export async function generateChatResponse(
   input: z.infer<typeof GenerateChatResponseInputSchema>
 ): Promise<z.infer<typeof GenerateChatResponseOutputSchema>> {
-  if (!hasAnthropicApiKey()) {
-    return `Error: ${anthropicConfigErrorMessage()}` as z.infer<typeof GenerateChatResponseOutputSchema>;
+  if (!hasGeminiApiKey()) {
+    return `Error: ${geminiConfigErrorMessage()}` as z.infer<typeof GenerateChatResponseOutputSchema>;
   }
 
   // Implement a small retry/backoff strategy for transient provider errors (503, 429, network issues)
@@ -73,7 +73,7 @@ export async function generateChatResponse(
 
 const prompt = ai.definePrompt({
   name: 'chatPrompt',
-  model: ANTHROPIC_MODEL,
+  model: GEMINI_MODEL,
   input: { schema: GenerateChatResponseInputSchema },
   tools: [getTodayStudyTask],
   prompt: `You are Athena AI, a helpful and professional AI assistant for students. Your job is to provide clear, friendly, and well-organized answers.

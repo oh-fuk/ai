@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { generateChatResponse } from '@/ai/flows/generate-chat-response';
-import { hasAnthropicApiKey, anthropicConfigErrorMessage } from '@/lib/anthropic-env';
+import { hasGeminiApiKey, geminiConfigErrorMessage } from '@/lib/gemini-env';
 
 export async function POST(request: NextRequest) {
     try {
-        if (!hasAnthropicApiKey()) {
+        if (!hasGeminiApiKey()) {
             return NextResponse.json(
-                { error: anthropicConfigErrorMessage(), success: false },
+                { error: geminiConfigErrorMessage(), success: false },
                 { status: 503 }
             );
         }

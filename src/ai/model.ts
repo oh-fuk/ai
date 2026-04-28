@@ -1,6 +1,6 @@
 /**
- * Single Claude model id for every Genkit text / structured flow.
- * Set ANTHROPIC_MODEL in env to override (e.g. anthropic/claude-3-5-sonnet-20241022).
+ * Default LLM for all Genkit flows (Google Gemini via @genkit-ai/google-genai).
+ * Override with GEMINI_MODEL (e.g. googleai/gemini-2.5-flash-lite).
  */
-export const ANTHROPIC_MODEL: string =
-  process.env.ANTHROPIC_MODEL?.trim() || "anthropic/claude-3-5-haiku";
+export const GEMINI_MODEL: string =
+  process.env.GEMINI_MODEL?.trim() || 'googleai/gemini-2.5-flash';

@@ -1,10 +1,10 @@
 import { genkit } from 'genkit';
-import { anthropic } from '@genkit-ai/anthropic';
+import { googleAI } from '@genkit-ai/google-genai';
 
 export const ai = genkit({
   plugins: [
-    anthropic({
-      apiKey: process.env.ANTHROPIC_API_KEY,
+    googleAI({
+      apiKey: process.env.GEMINI_API_KEY,
     }),
   ],
 });

@@ -10,7 +10,7 @@
  */
 
 import { ai } from '@/ai/genkit';
-import { ANTHROPIC_MODEL } from '@/ai/model';
+import { GEMINI_MODEL } from '@/ai/model';
 import { z } from 'genkit';
 
 const GenerateRemedialQuizInputSchema = z.object({
@@ -34,7 +34,7 @@ export async function generateRemedialQuiz(
 
 const prompt = ai.definePrompt({
   name: 'generateRemedialQuizPrompt',
-  model: ANTHROPIC_MODEL,
+  model: GEMINI_MODEL,
   input: { schema: GenerateRemedialQuizInputSchema },
   output: { schema: GenerateRemedialQuizOutputSchema },
   prompt: `You are an expert academic tutor. Your task is to analyze a student's quiz history to identify their weakest topic and then generate a targeted multiple-choice quiz to help them improve.

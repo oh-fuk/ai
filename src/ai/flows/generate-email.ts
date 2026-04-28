@@ -9,7 +9,7 @@
  */
 
 import { ai } from '@/ai/genkit';
-import { ANTHROPIC_MODEL } from '@/ai/model';
+import { GEMINI_MODEL } from '@/ai/model';
 import { z } from 'genkit';
 
 const GenerateEmailInputSchema = z.object({
@@ -30,7 +30,7 @@ export async function generateEmail(input: GenerateEmailInput): Promise<Generate
 
 const prompt = ai.definePrompt({
   name: 'generateEmailPrompt',
-  model: ANTHROPIC_MODEL,
+  model: GEMINI_MODEL,
   input: { schema: GenerateEmailInputSchema },
   output: { schema: GenerateEmailOutputSchema },
   prompt: `You are an email formatter. Generate emails in ORGANIZED FORMAT ONLY.

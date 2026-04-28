@@ -11,7 +11,7 @@
  */
 
 import { ai } from '@/ai/genkit';
-import { ANTHROPIC_MODEL } from '@/ai/model';
+import { GEMINI_MODEL } from '@/ai/model';
 import { z } from 'genkit';
 
 const GenerateStudyPlanInputSchema = z.object({
@@ -49,7 +49,7 @@ export async function generateStudyPlan(
 
 const prompt = ai.definePrompt({
   name: 'generateStudyPlanPrompt',
-  model: ANTHROPIC_MODEL,
+  model: GEMINI_MODEL,
   input: { schema: GenerateStudyPlanInputSchema },
   output: { schema: GenerateStudyPlanOutputSchema },
   prompt: `You are an expert academic advisor who creates detailed, actionable study plans. A student needs a plan for the following topic within a specific timeframe.

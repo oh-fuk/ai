@@ -10,7 +10,7 @@
  */
 
 import { ai } from '@/ai/genkit';
-import { ANTHROPIC_MODEL } from '@/ai/model';
+import { GEMINI_MODEL } from '@/ai/model';
 import { z } from 'genkit';
 import { analyzeBook } from './analyze-book';
 
@@ -60,7 +60,7 @@ export async function generatePaperFromPrompt(
 
 const prompt = ai.definePrompt({
   name: 'generatePaperPrompt',
-  model: ANTHROPIC_MODEL,
+  model: GEMINI_MODEL,
   input: {
     schema: z.object({
       ...GeneratePaperInputSchema.shape,

@@ -1,7 +1,7 @@
 'use server';
 
 import { ai } from '@/ai/genkit';
-import { ANTHROPIC_MODEL } from '@/ai/model';
+import { GEMINI_MODEL } from '@/ai/model';
 import {
   GenerateNotesInputSchema,
   GenerateNotesOutputSchema,
@@ -19,7 +19,7 @@ import {
 
 const generateNotesPrompt = ai.definePrompt({
   name: 'generateNotesPrompt',
-  model: ANTHROPIC_MODEL,
+  model: GEMINI_MODEL,
   input: { schema: GenerateNotesInputSchema },
   output: { 
     schema: GenerateNotesOutputSchema,
@@ -138,7 +138,7 @@ export async function generateNotes(input: GenerateNotesInput): Promise<Generate
 
 const extractKeywordsPrompt = ai.definePrompt({
   name: 'extractKeywordsPrompt',
-  model: ANTHROPIC_MODEL,
+  model: GEMINI_MODEL,
   input: { schema: ExtractKeywordsInputSchema },
   output: { schema: ExtractKeywordsOutputSchema },
   prompt: `You are a concise knowledge extractor. From the provided study notes, produce a list of the most important terms and a one‑sentence explanation for each.
