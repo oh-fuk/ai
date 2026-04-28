@@ -26,6 +26,7 @@ import { AiLoadingScreen } from '@/components/app/ai-loading';
 import { extractTextFromImage } from '@/ai/flows/extract-text-from-image';
 import { useRouter } from 'next/navigation';
 import { useDrive } from '@/hooks/use-drive';
+import { hasFormFileValue, isDriveImportFormValue } from '@/lib/drive-form-file';
 
 const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
 
@@ -35,13 +36,14 @@ const formSchema = z.object({
     file: z.any().optional(),
     specificTopic: z.string().optional(),
     pageRange: z.string().optional(),
-}).refine(data => data.text || (data.file && data.file.length > 0), {
+}).refine(data => data.text?.trim() || hasFormFileValue(data.file), {
     message: 'Please either paste text or upload a file to summarize.',
     path: ['text'], // Point error to the text field, but it covers both
 }).refine(data => {
     if (data.file && data.file[0]) {
         return data.file[0].size <= MAX_FILE_SIZE;
     }
+    if (isDriveImportFormValue(data.file)) return true;
     return true;
 }, {
     message: `File size must be less than 50MB.`,

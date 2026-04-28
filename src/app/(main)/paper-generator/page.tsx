@@ -6,7 +6,7 @@ import { useState, useEffect } from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Loader, UploadCloud, FileDown, CheckCircle, XCircle, X, Sparkles, File, Image as ImageIcon, Info } from 'lucide-react';
+import { Loader, UploadCloud, FileDown, CheckCircle, XCircle, X, Sparkles, File, Image as ImageIcon, Info, Upload } from 'lucide-react';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import { Button } from '@/components/ui/button';
@@ -16,7 +16,10 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { AiLoadingScreen } from '@/components/app/ai-loading';
+import { DriveImportButton } from '@/components/app/drive-import-button';
 import PageHeader from '@/components/app/page-header';
+import { useDrive } from '@/hooks/use-drive';
+import { getFormFileDisplayName, hasFormFileValue, isDriveImportFormValue, isPdfLikeMime } from '@/lib/drive-form-file';
 import { generatePaperFromPrompt } from '@/ai/flows/generate-paper-from-prompt';
 import { generateRemedialPaper } from '@/ai/flows/generate-remedial-paper';
 import { checkBulkQuizAnswers, AnswerResult } from '@/ai/flows/check-bulk-quiz-answers';
@@ -201,7 +204,7 @@ const formSchema = z.object({
     message: 'Please specify at least one question to generate.',
     path: ['mcqCount'],
 }).refine(data => {
-    if (data.file && data.file[0]) {
+    if (hasFormFileValue(data.file)) {
         return true; // Topic is optional if a file is uploaded
     }
     return data.topic && data.topic.length >= 3;
@@ -270,6 +273,9 @@ export default function PaperGeneratorPage() {
 
     const [paperResults, setPaperResults] = useState<PaperResult[]>([]);
     const [paperResultsLoading, setPaperResultsLoading] = useState(true);
+    const [savingQuestionPdfToDrive, setSavingQuestionPdfToDrive] = useState(false);
+    const [savingResultsPdfToDrive, setSavingResultsPdfToDrive] = useState(false);
+    const { connected: driveConnected, uploadFile } = useDrive();
 
     const subjectsQuery = useMemoFirebase(
         () => (user ? collection(firestore, 'users', user.uid, 'subjects') : null),
@@ -522,29 +528,44 @@ export default function PaperGeneratorPage() {
             let documentId: string | undefined;
             let extractedTextFromImage: string | undefined;
 
-            if (data.file && data.file[0]) {
-                const file = data.file[0];
-                const fileDataUri = await toBase64(file);
+            if (hasFormFileValue(data.file)) {
+                let fileType: string;
+                let fileDataUri: string;
+                let fromDrive = false;
+                if (isDriveImportFormValue(data.file)) {
+                    fromDrive = true;
+                    fileType = data.file.type;
+                    fileDataUri = data.file.dataUri;
+                } else if (data.file[0]) {
+                    const file = data.file[0];
+                    fileType = file.type;
+                    fileDataUri = await toBase64(file);
+                } else {
+                    fileType = '';
+                    fileDataUri = '';
+                }
 
-                if (file.type.startsWith('image/')) {
-                    const imageTextResult = await extractTextFromImage({ imageDataUri: fileDataUri, subject: data.subject });
-                    if (!imageTextResult.isRelated || !imageTextResult.extractedText) {
-                        toast({ variant: 'destructive', title: 'Image Analysis Failed', description: imageTextResult.reasoning || 'Could not extract relevant text from image.' });
+                if (fileDataUri) {
+                    if (fileType.startsWith('image/')) {
+                        const imageTextResult = await extractTextFromImage({ imageDataUri: fileDataUri, subject: data.subject });
+                        if (!imageTextResult.isRelated || !imageTextResult.extractedText) {
+                            toast({ variant: 'destructive', title: 'Image Analysis Failed', description: imageTextResult.reasoning || 'Could not extract relevant text from image.' });
+                            setIsLoading(false);
+                            return;
+                        }
+                        extractedTextFromImage = imageTextResult.extractedText;
+                    } else if (isPdfLikeMime(fileType)) {
+                        pdfDataUri = fileDataUri;
+                        if (user && !fromDrive) {
+                            const docRef = doc(collection(firestore, 'users', user.uid, 'documents'));
+                            documentId = docRef.id;
+                            form.setValue('pdfId', documentId);
+                        }
+                    } else {
+                        toast({ variant: 'destructive', title: 'Unsupported File Type', description: 'Please upload a PDF or an image file.' });
                         setIsLoading(false);
                         return;
                     }
-                    extractedTextFromImage = imageTextResult.extractedText;
-                } else if (file.type === 'application/pdf') {
-                    pdfDataUri = fileDataUri;
-                    if (user) {
-                        const docRef = doc(collection(firestore, 'users', user.uid, 'documents'));
-                        documentId = docRef.id;
-                        form.setValue('pdfId', documentId);
-                    }
-                } else {
-                    toast({ variant: 'destructive', title: 'Unsupported File Type', description: 'Please upload a PDF or an image file.' });
-                    setIsLoading(false);
-                    return;
                 }
             }
 
@@ -667,8 +688,8 @@ export default function PaperGeneratorPage() {
         }
     };
 
-    const downloadResultsPdf = () => {
-        if (!paper || !results) return;
+    const buildResultsPdfDoc = (): jsPDF => {
+        if (!paper || !results) throw new Error('No paper or results');
 
         const doc = new jsPDF();
         const { mcqMarks, shortMarks, longMarks, topic, subject } = form.getValues();
@@ -754,11 +775,34 @@ export default function PaperGeneratorPage() {
             margin: { top: 60, bottom: 20, left: 20, right: 20 },
         });
 
-        doc.save('exam-paper-results.pdf');
+        return doc;
     };
 
-    const downloadQuestionPaperPdf = () => {
-        if (!paper) return;
+    const downloadResultsPdf = () => {
+        if (!paper || !results) return;
+        buildResultsPdfDoc().save('exam-paper-results.pdf');
+    };
+
+    const saveResultsPdfToDrive = async () => {
+        if (!paper || !results || !driveConnected) return;
+        setSavingResultsPdfToDrive(true);
+        try {
+            const doc = buildResultsPdfDoc();
+            const blob = doc.output('blob');
+            const { subject, topic } = form.getValues();
+            const safe = (s: string) => s.replace(/[/\\?%*:|"<>]/g, '-').slice(0, 60);
+            await uploadFile(blob, `Paper results - ${safe(subject)} - ${safe(topic || 'exam')}.pdf`, 'application/pdf');
+            toast({ title: 'Saved to Google Drive!' });
+        } catch (e: unknown) {
+            const message = e instanceof Error ? e.message : 'Save failed';
+            toast({ variant: 'destructive', title: 'Save failed', description: message });
+        } finally {
+            setSavingResultsPdfToDrive(false);
+        }
+    };
+
+    const buildQuestionPaperPdfDoc = (): jsPDF => {
+        if (!paper) throw new Error('No paper');
 
         const doc = new jsPDF();
         const { topic, subject } = form.getValues();
@@ -835,7 +879,30 @@ export default function PaperGeneratorPage() {
             addHeaderFooter(i, totalPages);
         }
 
-        doc.save('question-paper.pdf');
+        return doc;
+    };
+
+    const downloadQuestionPaperPdf = () => {
+        if (!paper) return;
+        buildQuestionPaperPdfDoc().save('question-paper.pdf');
+    };
+
+    const saveQuestionPaperPdfToDrive = async () => {
+        if (!paper || !driveConnected) return;
+        setSavingQuestionPdfToDrive(true);
+        try {
+            const doc = buildQuestionPaperPdfDoc();
+            const blob = doc.output('blob');
+            const { subject, topic } = form.getValues();
+            const safe = (s: string) => s.replace(/[/\\?%*:|"<>]/g, '-').slice(0, 60);
+            await uploadFile(blob, `Question paper - ${safe(subject)} - ${safe(topic || 'exam')}.pdf`, 'application/pdf');
+            toast({ title: 'Saved to Google Drive!' });
+        } catch (e: unknown) {
+            const message = e instanceof Error ? e.message : 'Save failed';
+            toast({ variant: 'destructive', title: 'Save failed', description: message });
+        } finally {
+            setSavingQuestionPdfToDrive(false);
+        }
     };
 
     const score = results ? results.filter(r => r.isCorrect).length : 0;
@@ -1078,7 +1145,7 @@ export default function PaperGeneratorPage() {
                                                         >
                                                             <UploadCloud className="mx-auto mb-2 h-8 w-8" />
                                                             <span className='flex items-center gap-2'> <File className='h-4 w-4' /> / <ImageIcon className='h-4 w-4' /></span>
-                                                            {watchedFile?.[0]?.name || 'Click or drag to upload PDF/Image'}
+                                                            {getFormFileDisplayName(watchedFile) || 'Click or drag to upload PDF/Image'}
                                                         </Label>
                                                         <Controller
                                                             name="file"
@@ -1097,7 +1164,7 @@ export default function PaperGeneratorPage() {
                                                                 />
                                                             )}
                                                         />
-                                                        {watchedFile?.[0] && (
+                                                        {hasFormFileValue(watchedFile) && (
                                                             <Button
                                                                 type="button"
                                                                 variant="ghost"
@@ -1109,6 +1176,18 @@ export default function PaperGeneratorPage() {
                                                                 <span className="sr-only">Remove file</span>
                                                             </Button>
                                                         )}
+                                                    </div>
+                                                    <div className="flex justify-center pt-2">
+                                                        <DriveImportButton
+                                                            onImported={({ dataUri, mimeType, name }) => {
+                                                                form.setValue('file', {
+                                                                    __driveImport: true,
+                                                                    dataUri,
+                                                                    name,
+                                                                    type: mimeType,
+                                                                } as any);
+                                                            }}
+                                                        />
                                                     </div>
                                                 </FormControl>
                                                 <FormMessage>{form.formState.errors.file?.message as React.ReactNode}</FormMessage>
@@ -1165,13 +1244,28 @@ export default function PaperGeneratorPage() {
 
             {paper && (
                 <Card>
-                    <CardHeader className="flex flex-row items-center justify-between">
+                    <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                         <CardTitle>Your Exam on "{form.getValues('topic') || 'the uploaded content'}"</CardTitle>
                         {!results && (
-                            <Button onClick={downloadQuestionPaperPdf} variant="outline">
-                                <FileDown className="mr-2 h-4 w-4" />
-                                Download Question Paper
-                            </Button>
+                            <div className="flex flex-wrap gap-2">
+                                <Button onClick={downloadQuestionPaperPdf} variant="outline" size="sm">
+                                    <FileDown className="mr-2 h-4 w-4" />
+                                    Download Question Paper
+                                </Button>
+                                {driveConnected && (
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        className="gap-1.5"
+                                        disabled={savingQuestionPdfToDrive}
+                                        onClick={() => void saveQuestionPaperPdfToDrive()}
+                                    >
+                                        {savingQuestionPdfToDrive ? <Loader className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
+                                        Save to Drive
+                                    </Button>
+                                )}
+                            </div>
                         )}
                     </CardHeader>
                     <CardContent className="space-y-4">
@@ -1226,10 +1320,24 @@ export default function PaperGeneratorPage() {
                                     <div className="flex-1 rounded-xl bg-primary/10 p-4 text-center text-lg font-bold text-primary">
                                         Score: {score} / {totalQuestions}
                                     </div>
-                                    <Button onClick={downloadResultsPdf} className="w-full sm:w-auto">
-                                        <FileDown className="mr-2 h-4 w-4" />
-                                        Download Results
-                                    </Button>
+                                    <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+                                        <Button onClick={downloadResultsPdf} className="w-full sm:w-auto">
+                                            <FileDown className="mr-2 h-4 w-4" />
+                                            Download Results
+                                        </Button>
+                                        {driveConnected && (
+                                            <Button
+                                                type="button"
+                                                variant="outline"
+                                                className="w-full gap-1.5 sm:w-auto"
+                                                disabled={savingResultsPdfToDrive}
+                                                onClick={() => void saveResultsPdfToDrive()}
+                                            >
+                                                {savingResultsPdfToDrive ? <Loader className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
+                                                Save to Drive
+                                            </Button>
+                                        )}
+                                    </div>
                                 </>
                             )}
                         </div>

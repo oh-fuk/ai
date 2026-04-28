@@ -6,7 +6,7 @@ import { useState, useRef, useEffect } from 'react';
 import { useForm, Controller, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Loader, UploadCloud, FileDown, File as FileIcon, Image as ImageIcon, X, AlertTriangle, Lightbulb, GraduationCap, TrendingUp, BarChart } from 'lucide-react';
+import { Loader, UploadCloud, FileDown, File as FileIcon, Image as ImageIcon, X, AlertTriangle, Lightbulb, GraduationCap, TrendingUp, BarChart, Upload } from 'lucide-react';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import { Button } from '@/components/ui/button';
@@ -25,15 +25,32 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/
 import { Badge } from '@/components/ui/badge';
 import { useRouter } from 'next/navigation';
 import { AiLoadingScreen } from '@/components/app/ai-loading';
+import { DriveImportButton } from '@/components/app/drive-import-button';
+import { useDrive } from '@/hooks/use-drive';
+import { isDriveImportFormValue } from '@/lib/drive-form-file';
 
-const fileSchema = z.object({
-    file: z.instanceof(File),
+const GUESS_PAPER_DRIVE_MIMES = ['application/pdf', 'application/vnd.google-apps.document'];
+
+const fileSlotSchema = z.object({
+    file: z.any(),
 });
 
 const formSchema = z.object({
     subject: z.string().min(1, 'Please select a subject.'),
     numberOfPapers: z.coerce.number().min(1).max(80),
-    files: z.array(fileSchema).min(1, 'Please upload at least one past paper.'),
+    files: z.array(fileSlotSchema).min(1, 'Please upload at least one past paper.'),
+}).superRefine((data, ctx) => {
+    const anyFilled = data.files.some((slot) => {
+        const f = slot.file;
+        return isDriveImportFormValue(f) || (f instanceof File && f.size > 0);
+    });
+    if (!anyFilled) {
+        ctx.addIssue({
+            code: 'custom',
+            message: 'Please upload at least one past paper.',
+            path: ['files'],
+        });
+    }
 });
 
 type GuessPaperFormValues = z.infer<typeof formSchema>;
@@ -62,6 +79,8 @@ export default function GuessPaperPage() {
         [user, firestore]
     );
     const { data: userProfile } = useDoc(userDocRef);
+    const [savingGuessPdfToDrive, setSavingGuessPdfToDrive] = useState(false);
+    const { connected: driveConnected, uploadFile } = useDrive();
 
     const form = useForm<GuessPaperFormValues>({
         resolver: zodResolver(formSchema),
@@ -96,7 +115,7 @@ export default function GuessPaperPage() {
         setIsLoading(true);
         setResult(null);
 
-        const validFiles = data.files.filter(f => f.file && f.file.size > 0);
+        const validFiles = data.files.filter((f) => isDriveImportFormValue(f.file) || (f.file instanceof File && f.file.size > 0));
 
         if (validFiles.length === 0) {
             toast({
@@ -111,7 +130,9 @@ export default function GuessPaperPage() {
 
         try {
             const pastPapersDataUris = await Promise.all(
-                validFiles.map(f => toBase64(f.file))
+                validFiles.map((f) =>
+                    isDriveImportFormValue(f.file) ? Promise.resolve(f.file.dataUri) : toBase64(f.file as File)
+                )
             );
 
             const response = await generateGuessPaper({
@@ -133,8 +154,8 @@ export default function GuessPaperPage() {
         }
     };
 
-    const downloadPdf = () => {
-        if (!result) return;
+    const buildGuessPaperPdfDoc = (): jsPDF => {
+        if (!result) throw new Error('No result');
         const doc = new jsPDF();
         const { subject } = form.getValues();
         const reportTitle = `Guess Paper for ${subject}`;
@@ -242,7 +263,30 @@ export default function GuessPaperPage() {
         });
 
         addHeaderFooter(doc);
-        doc.save('guess-paper.pdf');
+        return doc;
+    };
+
+    const downloadPdf = () => {
+        if (!result) return;
+        buildGuessPaperPdfDoc().save('guess-paper.pdf');
+    };
+
+    const saveGuessPaperPdfToDrive = async () => {
+        if (!result || !driveConnected) return;
+        setSavingGuessPdfToDrive(true);
+        try {
+            const doc = buildGuessPaperPdfDoc();
+            const blob = doc.output('blob');
+            const { subject } = form.getValues();
+            const safe = (s: string) => s.replace(/[/\\?%*:|"<>]/g, '-').slice(0, 80);
+            await uploadFile(blob, `Guess paper - ${safe(subject || 'subject')}.pdf`, 'application/pdf');
+            toast({ title: 'Saved to Google Drive!' });
+        } catch (e: unknown) {
+            const message = e instanceof Error ? e.message : 'Save failed';
+            toast({ variant: 'destructive', title: 'Save failed', description: message });
+        } finally {
+            setSavingGuessPdfToDrive(false);
+        }
     };
 
     return (
@@ -327,12 +371,33 @@ export default function GuessPaperPage() {
                                                     <FormItem>
                                                         <FormLabel className="text-xs text-muted-foreground">Paper {index + 1}</FormLabel>
                                                         <FormControl>
-                                                            <Input
-                                                                type="file"
-                                                                accept="application/pdf,image/*"
-                                                                onChange={(e) => onChange(e.target.files?.[0])}
-                                                                {...rest}
-                                                            />
+                                                            <div className="space-y-2">
+                                                                <Input
+                                                                    type="file"
+                                                                    accept="application/pdf"
+                                                                    onChange={(e) => onChange(e.target.files?.[0])}
+                                                                    {...rest}
+                                                                />
+                                                                {(isDriveImportFormValue(value) || (value instanceof File && value.size > 0)) && (
+                                                                    <p className="truncate text-xs font-medium text-foreground">
+                                                                        {isDriveImportFormValue(value) ? value.name : (value as File).name}
+                                                                    </p>
+                                                                )}
+                                                                <DriveImportButton
+                                                                    size="sm"
+                                                                    className="w-full"
+                                                                    mimeTypes={GUESS_PAPER_DRIVE_MIMES}
+                                                                    label="From Drive"
+                                                                    onImported={({ dataUri, mimeType, name }) => {
+                                                                        onChange({
+                                                                            __driveImport: true,
+                                                                            dataUri,
+                                                                            name,
+                                                                            type: mimeType,
+                                                                        } as any);
+                                                                    }}
+                                                                />
+                                                            </div>
                                                         </FormControl>
                                                         <FormMessage />
                                                     </FormItem>
@@ -373,10 +438,25 @@ export default function GuessPaperPage() {
                                             <CardTitle>AI Guess Paper & Analysis</CardTitle>
                                             <CardDescription>Based on {form.getValues('numberOfPapers')} past papers for {form.getValues('subject')}.</CardDescription>
                                         </div>
-                                        <Button onClick={downloadPdf} variant="outline" size="sm">
-                                            <FileDown className="mr-2 h-4 w-4" />
-                                            Download Report
-                                        </Button>
+                                        <div className="flex flex-wrap gap-2">
+                                            <Button onClick={downloadPdf} variant="outline" size="sm">
+                                                <FileDown className="mr-2 h-4 w-4" />
+                                                Download Report
+                                            </Button>
+                                            {driveConnected && (
+                                                <Button
+                                                    type="button"
+                                                    variant="outline"
+                                                    size="sm"
+                                                    className="gap-1.5"
+                                                    disabled={savingGuessPdfToDrive}
+                                                    onClick={() => void saveGuessPaperPdfToDrive()}
+                                                >
+                                                    {savingGuessPdfToDrive ? <Loader className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
+                                                    Save to Drive
+                                                </Button>
+                                            )}
+                                        </div>
                                     </CardHeader>
                                     <CardContent>
                                         <Accordion type="multiple" defaultValue={['analysis', 'guess-paper']} className="w-full">

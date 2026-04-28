@@ -6,7 +6,7 @@ import { useState, useEffect } from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Loader, UploadCloud, FileDown, BookCopy, X, File, Image as ImageIcon, Milestone, Sparkles, ChevronLeft, Pilcrow } from 'lucide-react';
+import { Loader, UploadCloud, FileDown, BookCopy, X, File, Image as ImageIcon, Milestone, Sparkles, ChevronLeft, Pilcrow, Upload } from 'lucide-react';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import { Button } from '@/components/ui/button';
@@ -29,6 +29,9 @@ import { generateNotes, extractKeywordsFromNotes } from '@/ai/flows/generate-not
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { useRouter } from 'next/navigation';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { DriveImportButton } from '@/components/app/drive-import-button';
+import { useDrive } from '@/hooks/use-drive';
+import { getFormFileDisplayName, hasFormFileValue, isDriveImportFormValue, isPdfLikeMime } from '@/lib/drive-form-file';
 
 
 const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
@@ -44,7 +47,7 @@ const formSchema = z.object({
     specifications: z.string().min(1, 'Please provide additional specifications.'),
 }).refine(data => {
     if (data.generationType === 'document') {
-        return data.file && data.file.length > 0;
+        return hasFormFileValue(data.file);
     }
     return true;
 }, {
@@ -598,6 +601,8 @@ export default function NotesMakerPage() {
     const [showRawMarkdown, setShowRawMarkdown] = useState(false);
     const [keywordsCollapsed, setKeywordsCollapsed] = useState(false);
     const [isExtractingKeywords, setIsExtractingKeywords] = useState(false);
+    const [savingToDrive, setSavingToDrive] = useState(false);
+    const { connected: driveConnected, uploadFile } = useDrive();
     const { toast } = useToast();
     const { user } = useUser();
     const firestore = useFirestore();
@@ -643,27 +648,39 @@ export default function NotesMakerPage() {
 
         try {
             if (data.generationType === 'document') {
-                if (data.file && data.file[0]) {
-                    const file = data.file[0];
-                    const fileDataUri = await toBase64(file);
+                if (hasFormFileValue(data.file)) {
+                    let fileType: string;
+                    let fileDataUri: string;
+                    if (isDriveImportFormValue(data.file)) {
+                        fileType = data.file.type;
+                        fileDataUri = data.file.dataUri;
+                    } else if (data.file[0]) {
+                        const file = data.file[0];
+                        fileType = file.type;
+                        fileDataUri = await toBase64(file);
+                    } else {
+                        fileType = '';
+                        fileDataUri = '';
+                    }
 
-                    if (file.type.startsWith('image/')) {
-                        // If the user rotated the image, prefer the rotated data URI for extraction.
-                        const imageToSend = rotatedImageDataUri || fileDataUri;
-                        const result = await extractTextFromImage({ imageDataUri: imageToSend, subject: data.subject });
-                        if (!result.extractedText) {
-                            toast({ variant: 'destructive', title: 'Extraction Failed', description: result.reasoning || 'Could not extract text from the image.' });
+                    if (fileDataUri) {
+                        if (fileType.startsWith('image/')) {
+                            const imageToSend = rotatedImageDataUri || fileDataUri;
+                            const result = await extractTextFromImage({ imageDataUri: imageToSend, subject: data.subject });
+                            if (!result.extractedText) {
+                                toast({ variant: 'destructive', title: 'Extraction Failed', description: result.reasoning || 'Could not extract text from the image.' });
+                                setIsLoading(false);
+                                return;
+                            }
+                            extractedText = result.extractedText;
+                        } else if (isPdfLikeMime(fileType)) {
+                            const result = await extractTextFromPdf({ pdfDataUri: fileDataUri });
+                            extractedText = result.extractedText;
+                        } else {
+                            toast({ variant: 'destructive', title: 'Unsupported File', description: 'Please upload a PDF or image file.' });
                             setIsLoading(false);
                             return;
                         }
-                        extractedText = result.extractedText;
-                    } else if (file.type === 'application/pdf') {
-                        const result = await extractTextFromPdf({ pdfDataUri: fileDataUri });
-                        extractedText = result.extractedText;
-                    } else {
-                        toast({ variant: 'destructive', title: 'Unsupported File', description: 'Please upload a PDF or image file.' });
-                        setIsLoading(false);
-                        return;
                     }
                 }
 
@@ -732,8 +749,8 @@ export default function NotesMakerPage() {
         }
     };
 
-    const downloadPdf = () => {
-        if (!notesResult) return;
+    const buildNotesPdfDoc = (): jsPDF => {
+        if (!notesResult) throw new Error('No notes to export');
 
         const doc = new jsPDF();
         const { subject, topic, difficulty } = form.getValues();
@@ -916,7 +933,30 @@ export default function NotesMakerPage() {
         }
 
         addFooter(pageNum);
-        doc.save('study-notes.pdf');
+        return doc;
+    };
+
+    const downloadPdf = () => {
+        if (!notesResult) return;
+        buildNotesPdfDoc().save('study-notes.pdf');
+    };
+
+    const saveNotesPdfToDrive = async () => {
+        if (!notesResult || !driveConnected) return;
+        setSavingToDrive(true);
+        try {
+            const doc = buildNotesPdfDoc();
+            const blob = doc.output('blob');
+            const { subject, topic } = form.getValues();
+            const safe = (s: string) => s.replace(/[/\\?%*:|"<>]/g, '-').slice(0, 80);
+            await uploadFile(blob, `Notes - ${safe(subject || 'notes')}${topic ? ` - ${safe(topic)}` : ''}.pdf`, 'application/pdf');
+            toast({ title: 'Saved to Google Drive!' });
+        } catch (e: unknown) {
+            const message = e instanceof Error ? e.message : 'Save failed';
+            toast({ variant: 'destructive', title: 'Save failed', description: message });
+        } finally {
+            setSavingToDrive(false);
+        }
     };
 
 
@@ -1033,7 +1073,9 @@ export default function NotesMakerPage() {
                                                                         <p className="text-xs text-muted-foreground flex items-center gap-1">
                                                                             <File className="h-3 w-3" /> PDF or <ImageIcon className="h-3 w-3" /> Image
                                                                         </p>
-                                                                        {watchedFile?.[0] && <p className='mt-2 text-xs font-bold'>{watchedFile?.[0]?.name}</p>}
+                                                                        {getFormFileDisplayName(watchedFile) && (
+                                                                            <p className="mt-2 text-xs font-bold">{getFormFileDisplayName(watchedFile)}</p>
+                                                                        )}
                                                                     </div>
                                                                 </Label>
                                                                 <Controller
@@ -1064,11 +1106,43 @@ export default function NotesMakerPage() {
                                                                         />
                                                                     )}
                                                                 />
-                                                                {watchedFile?.[0] && (
-                                                                    <Button type="button" variant="ghost" size="icon" className="absolute top-2 right-2 h-6 w-6" onClick={() => form.resetField('file')}>
+                                                                {hasFormFileValue(watchedFile) && (
+                                                                    <Button
+                                                                        type="button"
+                                                                        variant="ghost"
+                                                                        size="icon"
+                                                                        className="absolute top-2 right-2 h-6 w-6"
+                                                                        onClick={() => {
+                                                                            form.resetField('file');
+                                                                            setPreviewImage(null);
+                                                                            setRotatedImageDataUri(null);
+                                                                            setRotationDeg(0);
+                                                                        }}
+                                                                    >
                                                                         <X className="h-4 w-4" />
                                                                     </Button>
                                                                 )}
+                                                            </div>
+                                                            <div className="flex justify-center pt-2">
+                                                                <DriveImportButton
+                                                                    onImported={({ dataUri, mimeType, name }) => {
+                                                                        form.setValue('file', {
+                                                                            __driveImport: true,
+                                                                            dataUri,
+                                                                            name,
+                                                                            type: mimeType,
+                                                                        } as any);
+                                                                        if (mimeType.startsWith('image/')) {
+                                                                            setPreviewImage(dataUri);
+                                                                            setRotatedImageDataUri(dataUri);
+                                                                            setRotationDeg(0);
+                                                                        } else {
+                                                                            setPreviewImage(null);
+                                                                            setRotatedImageDataUri(null);
+                                                                            setRotationDeg(0);
+                                                                        }
+                                                                    }}
+                                                                />
                                                             </div>
                                                         </FormControl>
                                                         <FormMessage>{form.formState.errors.file?.message as React.ReactNode}</FormMessage>
@@ -1238,11 +1312,24 @@ export default function NotesMakerPage() {
                                                     {form.getValues().difficulty && <span className="text-xs px-2 py-1 rounded-md bg-amber-100 text-amber-800 font-medium">{form.getValues().difficulty}</span>}
                                                 </div>
                                             </div>
-                                            <div className="flex items-center gap-2">
+                                            <div className="flex flex-wrap items-center gap-2">
                                                 <Button onClick={downloadPdf} variant="default" size="sm" className="w-full sm:w-auto bg-primary hover:bg-primary/90">
                                                     <FileDown className="mr-2 h-4 w-4" />
                                                     Download PDF
                                                 </Button>
+                                                {driveConnected && (
+                                                    <Button
+                                                        type="button"
+                                                        variant="outline"
+                                                        size="sm"
+                                                        className="gap-1.5"
+                                                        disabled={savingToDrive}
+                                                        onClick={() => void saveNotesPdfToDrive()}
+                                                    >
+                                                        {savingToDrive ? <Loader className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
+                                                        Save to Drive
+                                                    </Button>
+                                                )}
                                             </div>
                                         </CardHeader>
                                         <CardContent className="space-y-4 pt-6">

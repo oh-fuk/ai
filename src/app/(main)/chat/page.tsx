@@ -12,10 +12,13 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/componen
 import {
   Send, Loader, Copy, Trash2, Pencil, Plus, MessageSquare,
   PanelLeftClose, PanelLeftOpen, Search, Sparkles, Bot, User as UserIcon,
+  HardDrive, X,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useNotification } from '@/context/notification-context';
 import { generateChatResponse } from '@/ai/flows/generate-chat-response';
+import { extractTextFromPdf } from '@/ai/flows/extract-text-from-pdf';
+import { extractTextFromImage } from '@/ai/flows/extract-text-from-image';
 import { generateChatTitle } from '@/ai/flows/generate-chat-title';
 import { generateQuizFromChat } from '@/ai/flows/generate-quiz-from-chat';
 import { generatePaperFromPrompt } from '@/ai/flows/generate-paper-from-prompt';
@@ -30,6 +33,8 @@ import {
 } from "@/components/ui/alert-dialog";
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
+import { useDrive } from '@/hooks/use-drive';
+import { DRIVE_PICKER_MIME_TYPES, isPdfLikeMime } from '@/lib/drive-form-file';
 
 /* ─── Types ─────────────────────────────────────────────────────────────── */
 
@@ -218,6 +223,9 @@ export default function ChatPage() {
   const [input, setInput] = useState('');
   const [isSending, setIsSending] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [driveAttachment, setDriveAttachment] = useState<{ name: string; extractedText: string } | null>(null);
+  const [driveImportBusy, setDriveImportBusy] = useState(false);
+  const { connected: driveConnected, openPicker, downloadFile } = useDrive();
 
   const scrollAreaRef = useRef<HTMLDivElement>(null);
 
@@ -301,6 +309,52 @@ export default function ChatPage() {
     updateDoc(doc(firestore, 'users', user!.uid), { lastChatSessionId: id });
   };
 
+  const handleAttachFromDrive = () => {
+    const subjectHint =
+      (subjects?.[0] as { name?: string } | undefined)?.name ||
+      (userProfile as { class?: string } | undefined)?.class ||
+      'General';
+    openPicker(
+      async (driveFile) => {
+        setDriveImportBusy(true);
+        try {
+          const dataUri = await downloadFile(driveFile.id, driveFile.mimeType);
+          let extractedText = '';
+          if (driveFile.mimeType.startsWith('image/')) {
+            const r = await extractTextFromImage({ imageDataUri: dataUri, subject: subjectHint });
+            extractedText = r.extractedText || '';
+            if (!extractedText) {
+              toast({
+                variant: 'destructive',
+                title: 'Could not read image',
+                description: r.reasoning || 'No text could be extracted from this image.',
+              });
+              return;
+            }
+          } else if (isPdfLikeMime(driveFile.mimeType)) {
+            const r = await extractTextFromPdf({ pdfDataUri: dataUri });
+            extractedText = r.extractedText || '';
+            if (!extractedText) {
+              toast({ variant: 'destructive', title: 'Empty PDF', description: 'No extractable text was found in this file.' });
+              return;
+            }
+          } else {
+            toast({ variant: 'destructive', title: 'Unsupported type', description: 'Attach a PDF, Google Doc, or image from Drive.' });
+            return;
+          }
+          setDriveAttachment({ name: driveFile.name, extractedText });
+          toast({ title: `Attached: ${driveFile.name}` });
+        } catch (e: unknown) {
+          const message = e instanceof Error ? e.message : 'Import failed';
+          toast({ variant: 'destructive', title: 'Drive import failed', description: message });
+        } finally {
+          setDriveImportBusy(false);
+        }
+      },
+      [...DRIVE_PICKER_MIME_TYPES]
+    );
+  };
+
   // ── Send message ──
   const handleSendMessage = async (prompt: string) => {
     if (!prompt.trim() || !user) return;
@@ -362,6 +416,13 @@ export default function ChatPage() {
       }
     }
 
+    const attachedFromDrive = driveAttachment;
+    setDriveAttachment(null);
+    const promptForModel =
+      attachedFromDrive
+        ? `The student attached a file from Google Drive (“${attachedFromDrive.name}”). Extracted text from the file:\n\n---\n${attachedFromDrive.extractedText.length > 14000 ? `${attachedFromDrive.extractedText.slice(0, 14000)}\n[Truncated for length.]` : attachedFromDrive.extractedText}\n---\n\nStudent message:\n${prompt}`
+        : prompt;
+
     // Normal AI response
     try {
       const contextData = {
@@ -379,7 +440,7 @@ export default function ChatPage() {
       };
 
       const history = messages.map(({ role, content, userId }) => ({ role, content, userId: userId || user.uid }));
-      const aiResult = await generateChatResponse({ prompt, history, context: JSON.stringify(contextData, null, 2) });
+      const aiResult = await generateChatResponse({ prompt: promptForModel, history, context: JSON.stringify(contextData, null, 2) });
 
       if (typeof aiResult === 'string' && aiResult.startsWith('Error:')) {
         const errorText = aiResult.replace(/^Error:\s*/i, '');
@@ -510,16 +571,45 @@ export default function ChatPage() {
         </div>
 
         {/* Input */}
-        <div className="flex-shrink-0 border-t p-3 bg-background">
+        <div className="flex-shrink-0 border-t p-3 bg-background space-y-2">
+          {driveAttachment && (
+            <div className="flex items-center gap-2 rounded-md border bg-muted/40 px-2 py-1.5 text-xs">
+              <span className="min-w-0 flex-1 truncate text-muted-foreground">
+                <span className="font-medium text-foreground">Drive:</span> {driveAttachment.name}
+              </span>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7 shrink-0"
+                onClick={() => setDriveAttachment(null)}
+                aria-label="Remove attachment"
+              >
+                <X className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+          )}
           <form onSubmit={e => { e.preventDefault(); handleSendMessage(input); }} className="flex gap-2">
+            {driveConnected && (
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                disabled={isSending || isUserLoading || driveImportBusy}
+                title="Attach PDF or image from Google Drive"
+                onClick={handleAttachFromDrive}
+              >
+                {driveImportBusy ? <Loader className="h-4 w-4 animate-spin" /> : <HardDrive className="h-4 w-4" />}
+              </Button>
+            )}
             <Input
               value={input}
               onChange={e => setInput(e.target.value)}
               placeholder="Ask a question..."
-              disabled={isSending || isUserLoading}
+              disabled={isSending || isUserLoading || driveImportBusy}
               className="flex-1"
             />
-            <Button type="submit" disabled={isSending || !input.trim()} size="icon">
+            <Button type="submit" disabled={isSending || !input.trim() || driveImportBusy} size="icon">
               {isSending ? <Loader className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
             </Button>
           </form>

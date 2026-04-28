@@ -6,7 +6,7 @@ import { useState } from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Loader, UploadCloud, FileDown, X, File, Image as ImageIcon, ChevronLeft } from 'lucide-react';
+import { Loader, UploadCloud, FileDown, X, File, Image as ImageIcon, ChevronLeft, Upload } from 'lucide-react';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import { Button } from '@/components/ui/button';
@@ -23,7 +23,11 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { useUser, useFirestore, useCollection, useMemoFirebase, useDoc, addDocumentNonBlocking } from '@/firebase';
 import { collection, doc, addDoc, serverTimestamp } from 'firebase/firestore';
 import { extractTextFromImage } from '@/ai/flows/extract-text-from-image';
+import { extractTextFromPdf } from '@/ai/flows/extract-text-from-pdf';
 import { useRouter } from 'next/navigation';
+import { DriveImportButton } from '@/components/app/drive-import-button';
+import { useDrive } from '@/hooks/use-drive';
+import { getFormFileDisplayName, hasFormFileValue, isDriveImportFormValue, isPdfLikeMime } from '@/lib/drive-form-file';
 
 
 const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
@@ -38,7 +42,7 @@ const formSchema = z.object({
   specificTopic: z.string().optional(),
   pageRange: z.string().optional(),
 }).refine(data => {
-  if (data.file && data.file[0]) {
+  if (hasFormFileValue(data.file)) {
     return true; // Topic is optional if a file is uploaded
   }
   return data.topic && data.topic.length >= 3;
@@ -49,6 +53,7 @@ const formSchema = z.object({
   if (data.file && data.file[0]) {
     return data.file[0].size <= MAX_FILE_SIZE;
   }
+  if (isDriveImportFormValue(data.file)) return true;
   return true;
 }, {
   message: `File size must be less than 50MB.`,
@@ -76,6 +81,8 @@ interface Subject {
 export default function PlannerPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [studyPlan, setStudyPlan] = useState<StudyPlanResult | null>(null);
+  const [savingPlanPdfToDrive, setSavingPlanPdfToDrive] = useState(false);
+  const { connected: driveConnected, uploadFile } = useDrive();
   const { toast } = useToast();
   const { user } = useUser();
   const firestore = useFirestore();
@@ -122,24 +129,37 @@ export default function PlannerPage() {
 
     try {
       let pdfDataUri: string | undefined;
-      if (data.file && data.file[0]) {
-        const file = data.file[0];
-        const fileDataUri = await toBase64(file);
+      if (hasFormFileValue(data.file)) {
+        let fileType: string;
+        let fileDataUri: string;
+        if (isDriveImportFormValue(data.file)) {
+          fileType = data.file.type;
+          fileDataUri = data.file.dataUri;
+        } else if (data.file[0]) {
+          const file = data.file[0];
+          fileType = file.type;
+          fileDataUri = await toBase64(file);
+        } else {
+          fileType = '';
+          fileDataUri = '';
+        }
 
-        if (file.type.startsWith('image/')) {
-          const imageTextResult = await extractTextFromImage({ imageDataUri: fileDataUri, subject: data.subject });
-          if (!imageTextResult.isRelated || !imageTextResult.extractedText) {
-            toast({ variant: 'destructive', title: 'Image Analysis Failed', description: imageTextResult.reasoning || 'Could not extract relevant text from image.' });
+        if (fileDataUri) {
+          if (fileType.startsWith('image/')) {
+            const imageTextResult = await extractTextFromImage({ imageDataUri: fileDataUri, subject: data.subject });
+            if (!imageTextResult.isRelated || !imageTextResult.extractedText) {
+              toast({ variant: 'destructive', title: 'Image Analysis Failed', description: imageTextResult.reasoning || 'Could not extract relevant text from image.' });
+              setIsLoading(false);
+              return;
+            }
+            specifications += `\nBase the plan on the following text from an image: ${imageTextResult.extractedText}`;
+          } else if (isPdfLikeMime(fileType)) {
+            pdfDataUri = fileDataUri;
+          } else {
+            toast({ variant: 'destructive', title: 'Unsupported File Type', description: 'Please upload a PDF or an image file.' });
             setIsLoading(false);
             return;
           }
-          specifications += `\nBase the plan on the following text from an image: ${imageTextResult.extractedText}`;
-        } else if (file.type === 'application/pdf') {
-          pdfDataUri = fileDataUri;
-        } else {
-          toast({ variant: 'destructive', title: 'Unsupported File Type', description: 'Please upload a PDF or an image file.' });
-          setIsLoading(false);
-          return;
         }
       }
 
@@ -156,7 +176,7 @@ export default function PlannerPage() {
         const plansRef = collection(firestore, 'users', user.uid, 'studyPlans');
         const planData = {
           userId: user.uid,
-          name: data.topic || `Plan for ${data.file[0].name}`,
+          name: data.topic || `Plan for ${getFormFileDisplayName(data.file) || 'document'}`,
           startDate: new Date().toISOString().split('T')[0], // Save as YYYY-MM-DD
           endDate: '', // This can be calculated if needed
           timeframe: timeframe,
@@ -185,8 +205,8 @@ export default function PlannerPage() {
     }
   };
 
-  const downloadPdf = () => {
-    if (!studyPlan) return;
+  const buildStudyPlanPdfDoc = (): jsPDF => {
+    if (!studyPlan) throw new Error('No study plan');
 
     const doc = new jsPDF();
     const { topic, timeframeValue, timeframeUnit, subject } = form.getValues();
@@ -234,7 +254,30 @@ export default function PlannerPage() {
       margin: { top: 55, bottom: 20, left: 20, right: 20 }
     });
 
-    doc.save('study-plan.pdf');
+    return doc;
+  };
+
+  const downloadPdf = () => {
+    if (!studyPlan) return;
+    buildStudyPlanPdfDoc().save('study-plan.pdf');
+  };
+
+  const saveStudyPlanPdfToDrive = async () => {
+    if (!studyPlan || !driveConnected) return;
+    setSavingPlanPdfToDrive(true);
+    try {
+      const doc = buildStudyPlanPdfDoc();
+      const blob = doc.output('blob');
+      const { subject, topic } = form.getValues();
+      const safe = (s: string) => s.replace(/[/\\?%*:|"<>]/g, '-').slice(0, 60);
+      await uploadFile(blob, `Study plan - ${safe(subject)} - ${safe(topic || 'plan')}.pdf`, 'application/pdf');
+      toast({ title: 'Saved to Google Drive!' });
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : 'Save failed';
+      toast({ variant: 'destructive', title: 'Save failed', description: message });
+    } finally {
+      setSavingPlanPdfToDrive(false);
+    }
   };
 
   const watchedFile = form.watch('file');
@@ -366,7 +409,7 @@ export default function PlannerPage() {
                         >
                           <UploadCloud className="mx-auto mb-2 h-8 w-8" />
                           <span className='flex items-center gap-2'> <File className='h-4 w-4' /> / <ImageIcon className='h-4 w-4' /></span>
-                          {watchedFile?.[0]?.name || 'Click or drag to upload file'}
+                          {getFormFileDisplayName(watchedFile) || 'Click or drag to upload file'}
                         </Label>
                         <Controller
                           name="file"
@@ -385,7 +428,7 @@ export default function PlannerPage() {
                             />
                           )}
                         />
-                        {watchedFile?.[0] && (
+                        {hasFormFileValue(watchedFile) && (
                           <Button
                             type="button"
                             variant="ghost"
@@ -397,6 +440,18 @@ export default function PlannerPage() {
                             <span className="sr-only">Remove file</span>
                           </Button>
                         )}
+                      </div>
+                      <div className="flex justify-center pt-2">
+                        <DriveImportButton
+                          onImported={({ dataUri, mimeType, name }) => {
+                            form.setValue('file', {
+                              __driveImport: true,
+                              dataUri,
+                              name,
+                              type: mimeType,
+                            } as any);
+                          }}
+                        />
                       </div>
                     </FormControl>
                     <FormMessage>{form.formState.errors.file?.message as React.ReactNode}</FormMessage>
@@ -455,10 +510,25 @@ export default function PlannerPage() {
               <CardTitle>Your Study Plan for "{form.getValues('topic') || 'your uploaded document'}"</CardTitle>
               <CardDescription>A step-by-step guide to help you succeed.</CardDescription>
             </div>
-            <Button onClick={downloadPdf} variant="outline" size="sm">
-              <FileDown className="mr-2 h-4 w-4" />
-              Download PDF
-            </Button>
+            <div className="flex flex-wrap gap-2">
+              <Button onClick={downloadPdf} variant="outline" size="sm">
+                <FileDown className="mr-2 h-4 w-4" />
+                Download PDF
+              </Button>
+              {driveConnected && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="gap-1.5"
+                  disabled={savingPlanPdfToDrive}
+                  onClick={() => void saveStudyPlanPdfToDrive()}
+                >
+                  {savingPlanPdfToDrive ? <Loader className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
+                  Save to Drive
+                </Button>
+              )}
+            </div>
           </CardHeader>
           <CardContent>
             <Table>

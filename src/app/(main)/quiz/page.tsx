@@ -6,7 +6,7 @@ import { useState, useEffect } from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Loader, UploadCloud, FileDown, CheckCircle, XCircle, X, Sparkles, File, Image as ImageIcon } from 'lucide-react';
+import { Loader, UploadCloud, FileDown, CheckCircle, XCircle, X, Sparkles, File, Image as ImageIcon, Upload } from 'lucide-react';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import { Button } from '@/components/ui/button';
@@ -20,7 +20,10 @@ import {
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { AiLoadingScreen } from '@/components/app/ai-loading';
+import { DriveImportButton } from '@/components/app/drive-import-button';
 import PageHeader from '@/components/app/page-header';
+import { useDrive } from '@/hooks/use-drive';
+import { getFormFileDisplayName, hasFormFileValue, isDriveImportFormValue, isPdfLikeMime } from '@/lib/drive-form-file';
 import { Confetti } from '@/components/app/confetti';
 import { DifficultyPredictor } from '@/components/app/difficulty-predictor';
 import { generateQuizFromPdf } from '@/ai/flows/generate-quiz-from-pdf';
@@ -135,7 +138,7 @@ const formSchema = z.object({
   pageRange: z.string().optional(),
   difficulty: z.enum(['easy', 'medium', 'hard']).optional(),
 }).refine(data => {
-  if (data.file && data.file[0]) {
+  if (hasFormFileValue(data.file)) {
     return true; // Topic is optional if a file is uploaded
   }
   return data.topic && data.topic.length >= 3;
@@ -146,6 +149,7 @@ const formSchema = z.object({
   if (data.file && data.file[0]) {
     return data.file[0].size <= MAX_FILE_SIZE;
   }
+  if (isDriveImportFormValue(data.file)) return true;
   return true;
 }, {
   message: `File size must be less than 50MB.`,
@@ -192,6 +196,8 @@ export default function QuizPage() {
   const [results, setResults] = useState<AnswerResult[] | null>(null);
   const [showConfetti, setShowConfetti] = useState(false);
   const [finalScorePct, setFinalScorePct] = useState(0);
+  const [savingQuizPdfToDrive, setSavingQuizPdfToDrive] = useState(false);
+  const { connected: driveConnected, uploadFile } = useDrive();
   const { toast } = useToast();
   const { user } = useUser();
   const firestore = useFirestore();
@@ -365,11 +371,28 @@ export default function QuizPage() {
     try {
       let quizData;
       const topic = data.topic || "the uploaded content";
-      if (data.file && data.file[0]) {
-        const file = data.file[0];
-        if (file.type.startsWith('image/')) {
-          const imageDataUri = await toBase64(file);
-          const imageTextResult = await extractTextFromImage({ imageDataUri, subject: data.subject });
+      if (hasFormFileValue(data.file)) {
+        let fileType: string;
+        let fileDataUri: string;
+        if (isDriveImportFormValue(data.file)) {
+          fileType = data.file.type;
+          fileDataUri = data.file.dataUri;
+        } else if (data.file[0]) {
+          const file = data.file[0];
+          fileType = file.type;
+          fileDataUri = await toBase64(file);
+        } else {
+          fileType = '';
+          fileDataUri = '';
+        }
+
+        if (!fileDataUri) {
+          toast({ variant: 'destructive', title: 'Invalid file', description: 'Could not read the selected file.' });
+          setIsLoading(false);
+          return;
+        }
+        if (fileType.startsWith('image/')) {
+          const imageTextResult = await extractTextFromImage({ imageDataUri: fileDataUri, subject: data.subject });
           if (!imageTextResult.isRelated || !imageTextResult.extractedText) {
             toast({ variant: 'destructive', title: 'Image Analysis Failed', description: imageTextResult.reasoning || 'Could not extract relevant text from image.' });
             setIsLoading(false);
@@ -380,10 +403,9 @@ export default function QuizPage() {
             topic: `A quiz on ${topic} based on the following text: ${imageTextResult.extractedText}`,
             difficulty: data.difficulty,
           });
-        } else if (file.type === 'application/pdf') {
-          const pdfDataUri = await toBase64(file);
+        } else if (isPdfLikeMime(fileType)) {
           quizData = await generateQuizFromPdf({
-            pdfDataUri,
+            pdfDataUri: fileDataUri,
             numberOfQuestions: parseInt(data.numberOfQuestions, 10),
             topic: topic,
             specificTopic: data.specificTopic,
@@ -498,8 +520,8 @@ export default function QuizPage() {
     }
   };
 
-  const downloadPdf = () => {
-    if (!quiz || !results) return;
+  const buildQuizResultsPdfDoc = (): jsPDF => {
+    if (!quiz || !results) throw new Error('No quiz or results');
 
     const doc = new jsPDF();
     const { topic, subject } = form.getValues();
@@ -563,7 +585,30 @@ export default function QuizPage() {
       startY = (doc as any).autoTable.previous.finalY + 10;
     });
 
-    doc.save('quiz-results.pdf');
+    return doc;
+  };
+
+  const downloadPdf = () => {
+    if (!quiz || !results) return;
+    buildQuizResultsPdfDoc().save('quiz-results.pdf');
+  };
+
+  const saveQuizResultsPdfToDrive = async () => {
+    if (!quiz || !results || !driveConnected) return;
+    setSavingQuizPdfToDrive(true);
+    try {
+      const doc = buildQuizResultsPdfDoc();
+      const blob = doc.output('blob');
+      const { subject, topic } = form.getValues();
+      const safe = (s: string) => s.replace(/[/\\?%*:|"<>]/g, '-').slice(0, 60);
+      await uploadFile(blob, `Quiz results - ${safe(subject)} - ${safe(topic || 'quiz')}.pdf`, 'application/pdf');
+      toast({ title: 'Saved to Google Drive!' });
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : 'Save failed';
+      toast({ variant: 'destructive', title: 'Save failed', description: message });
+    } finally {
+      setSavingQuizPdfToDrive(false);
+    }
   };
 
   const score = results ? results.filter(r => r.isCorrect).length : 0;
@@ -675,7 +720,7 @@ export default function QuizPage() {
                             >
                               <UploadCloud className="mx-auto mb-2 h-8 w-8" />
                               <span className='flex items-center gap-2'> <File className='h-4 w-4' /> / <ImageIcon className='h-4 w-4' /></span>
-                              {watchedFile?.[0]?.name || 'Click or drag to upload PDF/Image'}
+                              {getFormFileDisplayName(watchedFile) || 'Click or drag to upload PDF/Image'}
                             </Label>
                             <Controller
                               name="file"
@@ -690,7 +735,7 @@ export default function QuizPage() {
                                 />
                               )}
                             />
-                            {watchedFile?.[0] && (
+                            {hasFormFileValue(watchedFile) && (
                               <Button
                                 type="button"
                                 variant="ghost"
@@ -702,6 +747,18 @@ export default function QuizPage() {
                                 <span className="sr-only">Remove file</span>
                               </Button>
                             )}
+                          </div>
+                          <div className="flex justify-center pt-2">
+                            <DriveImportButton
+                              onImported={({ dataUri, mimeType, name }) => {
+                                form.setValue('file', {
+                                  __driveImport: true,
+                                  dataUri,
+                                  name,
+                                  type: mimeType,
+                                } as any);
+                              }}
+                            />
                           </div>
                         </FormControl>
                         <FormMessage>{form.formState.errors.file?.message as React.ReactNode}</FormMessage>
@@ -837,9 +894,23 @@ export default function QuizPage() {
                   <div className="flex-1 rounded-xl bg-primary/10 p-4 text-center text-lg font-bold text-primary">
                     Score: {score} / {totalQuestions}
                   </div>
-                  <Button onClick={downloadPdf} variant="outline" className="w-full sm:w-auto">
-                    <FileDown className="mr-2 h-4 w-4" />Download Results
-                  </Button>
+                  <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+                    <Button onClick={downloadPdf} variant="outline" className="w-full sm:w-auto">
+                      <FileDown className="mr-2 h-4 w-4" />Download Results
+                    </Button>
+                    {driveConnected && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="w-full gap-1.5 sm:w-auto"
+                        disabled={savingQuizPdfToDrive}
+                        onClick={() => void saveQuizResultsPdfToDrive()}
+                      >
+                        {savingQuizPdfToDrive ? <Loader className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
+                        Save to Drive
+                      </Button>
+                    )}
+                  </div>
                 </>
               )}
             </div>
