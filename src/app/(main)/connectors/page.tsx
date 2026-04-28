@@ -194,6 +194,14 @@ function ConnectorsPageInner() {
             toastRef.current({ variant: 'destructive', title: 'Picker not ready', description: 'Connect Drive first.' });
             return;
         }
+        if (!GOOGLE_PICKER_API_KEY?.trim()) {
+            toastRef.current({
+                variant: 'destructive',
+                title: 'Google Picker is not configured',
+                description: 'Add NEXT_PUBLIC_GOOGLE_PICKER_API_KEY to your .env (API key with Google Picker API + Drive API enabled).',
+            });
+            return;
+        }
         const picker = new window.google.picker.PickerBuilder()
             .addView(window.google.picker.ViewId.DOCS)
             .setOAuthToken(accessToken)

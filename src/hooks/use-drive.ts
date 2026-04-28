@@ -69,6 +69,14 @@ export function useDrive() {
             toast({ variant: 'destructive', title: 'Picker not ready yet, please try again.' });
             return;
         }
+        if (!PICKER_API_KEY?.trim()) {
+            toast({
+                variant: 'destructive',
+                title: 'Google Picker is not configured',
+                description: 'Set NEXT_PUBLIC_GOOGLE_PICKER_API_KEY in your environment (Google Cloud → APIs & Services → Credentials → API key, with Drive API enabled).',
+            });
+            return;
+        }
 
         const view = new window.google.picker.DocsView()
             .setMimeTypes(mimeTypes.join(','))

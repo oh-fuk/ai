@@ -127,7 +127,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 "flex-1 overflow-y-auto scrollbar-thin",
                 isChat && "overflow-hidden h-full"
               )}>
-                <div key={pathname} className={cn("page-enter", isChat && "h-full")}>
+                <div className={cn("page-enter", isChat && "h-full")}>
                   <div className={cn(
                     "p-4 sm:p-6 lg:p-8",
                     (isChat || isDashboard) && "p-0 h-full"
