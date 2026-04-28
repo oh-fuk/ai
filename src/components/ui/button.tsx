@@ -40,14 +40,20 @@ export interface ButtonProps
 }
 
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ className, variant, size, asChild = false, ...props }, ref) => {
-    const Comp = asChild ? Slot : "button"
+  ({ className, variant, size, asChild = false, children, ...props }, ref) => {
+    // Radix Slot enforces `React.Children.only`. If someone accidentally passes
+    // multiple children, we fallback to a normal <button> to avoid a hard crash
+    // (common cause of "React.Children.only expected to receive a single React element child.").
+    const canSlot = asChild && React.Children.count(children) === 1
+    const Comp = canSlot ? Slot : "button"
     return (
       <Comp
         className={cn(buttonVariants({ variant, size, className }))}
         ref={ref}
         {...props}
-      />
+      >
+        {children}
+      </Comp>
     )
   }
 )

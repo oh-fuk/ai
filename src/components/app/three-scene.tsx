@@ -191,7 +191,18 @@ function DustParticles() {
 /* ── Main export ── */
 export default function ThreeScene() {
     return (
-        <Canvas camera={{ position: [0, 2.5, 9], fov: 55 }}>
+        <Canvas
+            camera={{ position: [0, 2.5, 9], fov: 55 }}
+            dpr={[1, 1.5]}
+            gl={{ antialias: true, powerPreference: "high-performance" }}
+            onCreated={({ gl }) => {
+                // Browsers can suspend/lose GPU context (tab switch, memory pressure).
+                // Prevent the default hard error spam; R3F will recover when possible.
+                gl.domElement.addEventListener("webglcontextlost", (e) => {
+                    e.preventDefault();
+                });
+            }}
+        >
             <Suspense fallback={null}>
                 <ambientLight intensity={0.3} />
                 <pointLight position={[5, 5, 5]} intensity={3} color="#38bdf8" />
