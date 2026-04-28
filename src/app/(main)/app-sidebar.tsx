@@ -24,14 +24,12 @@ type NavIcon = React.ComponentType<{ className?: string }>;
 const navSections: {
   label: string | null;
   categoryIcon?: NavIcon;
-  /** Spotlight target for product tour (visible in collapsed + expanded sidebar). */
-  tourId?: string;
-  items: { href: string; label: string; icon: NavIcon; notificationKey?: string; tourId?: string }[];
+  items: { href: string; label: string; icon: NavIcon; notificationKey?: string }[];
 }[] = [
     {
       label: null,
       items: [
-        { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, notificationKey: "dashboard", tourId: "onborda-nav-dashboard" },
+        { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, notificationKey: "dashboard" },
         { href: "/chat", label: "AI Chat", icon: MessageCircle, notificationKey: "chat" },
       ],
     },
@@ -79,7 +77,6 @@ const navSections: {
     {
       label: "Connectors",
       categoryIcon: Plug,
-      tourId: "onborda-nav-connectors",
       items: [
         { href: "/connectors", label: "All connectors", icon: Plug },
         { href: "/connectors?section=drive", label: "Google Drive", icon: HardDrive },
@@ -105,7 +102,7 @@ function navHrefIsActive(pathname: string, search: URLSearchParams, href: string
 function NavItem({
   item, collapsed, notificationKey,
 }: {
-  item: { href: string; label: string; icon: NavIcon; tourId?: string };
+  item: { href: string; label: string; icon: NavIcon };
   collapsed: boolean;
   notificationKey?: string;
 }) {
@@ -116,7 +113,6 @@ function NavItem({
 
   const inner = (
     <Link
-      id={item.tourId}
       href={item.href}
       className={cn(
         "group relative flex items-center rounded-lg text-sm font-medium transition-all duration-150",
@@ -155,15 +151,14 @@ function NavItem({
 
 /* ─── Category row (collapsed mode) ────────────────────────────────────── */
 function CollapsedCategory({
-  label, icon: Icon, items, open, onToggle, showLabel = false, tourId,
+  label, icon: Icon, items, open, onToggle, showLabel = false,
 }: {
   label: string;
   icon: NavIcon;
-  items: { href: string; label: string; icon: NavIcon; notificationKey?: string; tourId?: string }[];
+  items: { href: string; label: string; icon: NavIcon; notificationKey?: string }[];
   open: boolean;
   onToggle: () => void;
   showLabel?: boolean;
-  tourId?: string;
 }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -175,7 +170,6 @@ function CollapsedCategory({
         <TooltipTrigger asChild>
           <button
             type="button"
-            id={!showLabel ? tourId : undefined}
             onClick={onToggle}
             className={cn(
               "flex items-center rounded-lg transition-all duration-150",
@@ -252,7 +246,7 @@ const AppSidebar = memo(function AppSidebar({
 
   return (
     <TooltipProvider>
-      <div id="onborda-app-sidebar" className="flex flex-col h-full bg-sidebar w-full">
+      <div className="flex flex-col h-full bg-sidebar w-full">
 
         {/* Logo */}
         <SidebarHeader className={cn(
@@ -305,7 +299,6 @@ const AppSidebar = memo(function AppSidebar({
                       open={openCategory === section.label}
                       onToggle={() => toggleCategory(section.label!)}
                       showLabel={false}
-                      tourId={section.tourId}
                     />
                   </div>
                 );
@@ -315,7 +308,6 @@ const AppSidebar = memo(function AppSidebar({
               return (
                 <div key={si}>
                   <p
-                    id={section.tourId}
                     className="px-3 pt-4 pb-1 text-[10px] font-semibold uppercase tracking-widest text-sidebar-foreground/35 select-none"
                   >
                     {section.label}

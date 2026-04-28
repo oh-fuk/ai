@@ -1,6 +1,6 @@
 # AthenaAI StudyBuddy
 
-For **setup, environment variables, full feature documentation, Connectors hub behavior, and the new-user app tour**, see the repository root [README.md](../README.md).
+For **setup, environment variables, full feature documentation, and Connectors hub behavior**, see the repository root [README.md](../README.md).
 
 Welcome to **AthenaAI StudyBuddy**, your personal AI-powered academic assistant designed to help you excel in your studies. This application leverages cutting-edge AI to provide a suite of tools that streamline learning, organization, and knowledge testing.
 

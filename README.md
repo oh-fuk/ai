@@ -2,7 +2,7 @@
 
 AthenaAI StudyBuddy is a **student-facing web application** that combines **Firebase** (authentication, profile data, storage) with **Anthropic Claude** (via **Genkit**) to help learners chat with an AI tutor, generate quizzes and exam papers, summarize and analyze documents, plan study time, track progress, and manage tasks. The UI is built with **Next.js 15** (App Router), **React 19**, **Tailwind CSS**, and **Radix** primitives.
 
-This document is a **full product and technical overview**: what the app is for, how each major area works, how Google Drive fits in, how new users get an **optional guided tour**, and how to run and deploy the project.
+This document is a **full product and technical overview**: what the app is for, how each major area works, how Google Drive fits in, and how to run and deploy the project.
 
 ---
 
@@ -19,7 +19,7 @@ The app targets **students** who want one place to:
 - See **history** and **progress** charts across subjects.
 - Optionally link **Google Drive** to browse files and import them **inside each tool** (not from a global “push to tool” hub).
 
-New accounts created via **Register** get a profile document in Firestore, complete **onboarding** (profile and subjects), sign in again, land on the **Dashboard**, and—if `hasSeenAppTour` is `false`—see a short **product tour** (powered by **Onborda** + **Framer Motion**) that they can step through, skip, or finish on the last step.
+New accounts created via **Register** get a profile document in Firestore, complete **onboarding** (profile and subjects), sign in again, and land on the **Dashboard**.
 
 ---
 
@@ -33,7 +33,6 @@ New accounts created via **Register** get a profile document in Firestore, compl
 | Auth & data             | Firebase Auth, Firestore, Firebase Storage                                               |
 | AI                      | Genkit, `@genkit-ai/anthropic`, `ANTHROPIC_API_KEY`, optional `ANTHROPIC_MODEL`          |
 | Google Drive (optional) | Google Identity Services (OAuth token client), Google Picker, Drive REST from the client |
-| Product tour            | `onborda` (Framer Motion–based), `@radix-ui/react-portal`                                |
 
 
 ---
@@ -46,7 +45,6 @@ Paths below match the **sidebar** and **dashboard** quick links unless noted.
 
 - **Role:** Home after login; personalized greeting, date, and quick stats (study time from logged sessions, average quiz score, “subjects mastered” heuristic).
 - **Quick access grid:** Cards for major tools (AI Chat, Generator hub, Analyzer hub, Writing hub, Study Planner, Timer, Tasks, Progress, History). Cards can be reordered; order can be **exported/imported** as JSON and persisted on the user document (`dashboardQuickOrder`).
-- **Tour:** The onboarding spotlight tour uses `#onborda-dashboard-hero` on the welcome block so first-time users understand the app’s purpose.
 
 ### 3.2 AI Chat (`/chat`)
 
@@ -123,12 +121,12 @@ See [README_GOOGLE_DRIVE.md](./README_GOOGLE_DRIVE.md) for OAuth, APIs, and secu
 
 ### 3.17 Profile (`/profile`) and Settings (`/settings`)
 
-- **Profile:** Avatar, name, and quick link from the header (`#onborda-header-controls` in the tour).
+- **Profile:** Avatar, name, and quick link from the header.
 - **Settings:** Theme (also **Theme toggler** in header), subjects, and account-related options.
 
 ### 3.18 Auth and onboarding
 
-- **Register** (`/register`): Creates Firebase user + Firestore `users/{uid}` with `hasCompletedOnboarding: false` and `**hasSeenAppTour: false`** (new accounts only).
+- **Register** (`/register`): Creates Firebase user + Firestore `users/{uid}` with `hasCompletedOnboarding: false`.
 - **Onboarding** (`/onboarding`): Multi-step form (personal, academic, subjects); sets `hasCompletedOnboarding: true` and writes subject subcollections.
 - **Login** (`/login`): Redirects to onboarding if incomplete, else **Dashboard**.
 - **Main app layout** (`(main)/layout.tsx`): **Auth guard** enforces login + completed onboarding before showing the shell (sidebar, header, children).
@@ -143,18 +141,7 @@ See [README_GOOGLE_DRIVE.md](./README_GOOGLE_DRIVE.md) for OAuth, APIs, and secu
 
 ---
 
-## 4. New user product tour (Onborda)
-
-- **Library:** `onborda` uses **Framer Motion** for the spotlight and card motion; cards are customized in `src/components/app/app-tour.tsx`.
-- **Provider:** `AppTourProvider` wraps the authenticated main shell in `(main)/layout.tsx` (inside `AuthGuard`).
-- **Eligibility:** Firestore `users/{uid}.hasSeenAppTour === false` (set on **register**). Missing field is treated as “already seen” so **existing** users are not forced through the tour.
-- **When it runs:** After profile load, on `**/dashboard` only**, a ~500ms delayed `startOnborda('main')` runs.
-- **Steps:** (1) Welcome / purpose — `#onborda-dashboard-hero`. (2) Sidebar — `#onborda-app-sidebar`. (3) Connectors label — `#onborda-nav-connectors` (works in collapsed and expanded sidebar). (4) Header theme/profile — `#onborda-header-controls`.
-- **Controls:** **Back**, **Next**, **Skip tour** (skip marks complete), **Finish** on last step (marks `hasSeenAppTour: true`).
-
----
-
-## 5. Environment variables
+## 4. Environment variables
 
 Create `.env.local` (or set in Vercel / Firebase App Hosting).
 
@@ -184,7 +171,7 @@ Details: [README_GOOGLE_DRIVE.md](./README_GOOGLE_DRIVE.md).
 
 ---
 
-## 6. Local development
+## 5. Local development
 
 ```bash
 npm install
@@ -205,17 +192,17 @@ Other scripts:
 
 ---
 
-## 7. Favicon and logo
+## 6. Favicon and logo
 
 - The **Athena logo** is imported from `@/LOGO/logo.png` (same asset as `AthenaLogo` in `src/components/app/logo.tsx`).
 - **Root metadata** (`src/app/layout.tsx`) sets `icons.icon` and `icons.apple` from that import so the tab icon matches the in-app logo. Ensure `src/LOGO/logo.png` exists in your checkout (binary assets may be gitignored in some setups).
 
 ---
 
-## 8. Project structure (orientation)
+## 7. Project structure (orientation)
 
 - `src/app/` — App Router: `(main)` authenticated shell, `login`, `register`, `onboarding`, `api/ai/...`.
-- `src/components/` — Shared UI, `app-tour.tsx`, `logo.tsx`, etc.
+- `src/components/` — Shared UI, `logo.tsx`, etc.
 - `src/ai/` — Genkit instance, flows, schemas.
 - `src/firebase/` — Client init, hooks, provider.
 - `src/hooks/` — `use-drive.ts` and others.
@@ -225,7 +212,7 @@ Short marketing-style feature list (duplicate summary): [src/README.md](./src/RE
 
 ---
 
-## 9. Security and privacy (high level)
+## 8. Security and privacy (high level)
 
 - **Firestore rules** must ensure users only read/write their own `users/{uid}` and subcollections.
 - **Google tokens** for Drive are stored on the user document for client-side API calls; restrict API keys by **HTTP referrer**; prefer least-privilege OAuth scopes (see Drive README).
@@ -233,14 +220,14 @@ Short marketing-style feature list (duplicate summary): [src/README.md](./src/RE
 
 ---
 
-## 10. Contributing and scope
+## 9. Contributing and scope
 
 - Keep **Drive import** on **tool pages**; the Connectors hub remains **browse + account management** only unless product requirements change.
 - Avoid unrelated refactors in PRs that fix a single feature.
 
 ---
 
-## 11. Related docs
+## 10. Related docs
 
 - [README_GOOGLE_DRIVE.md](./README_GOOGLE_DRIVE.md) — Drive OAuth, Picker, import/save matrix, troubleshooting.
 - [src/docs/host.md](./src/docs/host.md) — Hosting notes (if present).
