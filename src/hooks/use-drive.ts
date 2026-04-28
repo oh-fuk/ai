@@ -1,11 +1,13 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, useRef } from 'react';
 import { useUser, useFirestore, useMemoFirebase, useDoc } from '@/firebase';
-import { doc } from 'firebase/firestore';
+import { doc, updateDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
+import { getGooglePickerOrigin, requestGoogleDriveAccessTokenSilent } from '@/lib/google-drive-picker';
 
 const PICKER_API_KEY = process.env.NEXT_PUBLIC_GOOGLE_PICKER_API_KEY || '';
+const GOOGLE_CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || '';
 
 declare global {
     interface Window { google: any; gapi: any; }
@@ -34,12 +36,17 @@ export function useDrive() {
     const [connected, setConnected] = useState(false);
     const [accessToken, setAccessToken] = useState('');
     const [pickerReady, setPickerReady] = useState(false);
+    const accessTokenRef = useRef('');
 
     const userDocRef = useMemoFirebase(
         () => (user ? doc(firestore, 'users', user.uid) : null),
         [user, firestore]
     );
     const { data: userProfile } = useDoc(userDocRef);
+
+    useEffect(() => {
+        accessTokenRef.current = accessToken;
+    }, [accessToken]);
 
     // Restore token from Firestore
     useEffect(() => {
@@ -49,15 +56,18 @@ export function useDrive() {
         }
     }, [userProfile]);
 
-    // Load picker script
+    // Picker needs both gapi (picker) and gsi (OAuth refresh for production tokens)
     useEffect(() => {
-        loadScript('https://apis.google.com/js/api.js').then(() => {
+        Promise.all([
+            loadScript('https://accounts.google.com/gsi/client'),
+            loadScript('https://apis.google.com/js/api.js'),
+        ]).then(() => {
             window.gapi.load('picker', () => setPickerReady(true));
         }).catch(() => { });
     }, []);
 
     /* ── Open file picker ── */
-    const openPicker = useCallback((
+    const openPicker = useCallback(async (
         onPicked: (file: DriveFile) => void,
         mimeTypes: string[] = ['application/pdf', 'image/*']
     ) => {
@@ -73,41 +83,72 @@ export function useDrive() {
             toast({
                 variant: 'destructive',
                 title: 'Google Picker is not configured',
-                description: 'Set NEXT_PUBLIC_GOOGLE_PICKER_API_KEY in your environment (Google Cloud → APIs & Services → Credentials → API key, with Drive API enabled).',
+                description: 'In Vercel → Settings → Environment Variables, set NEXT_PUBLIC_GOOGLE_PICKER_API_KEY (Google Cloud: enable Picker API + Drive API, create browser API key, add this site under HTTP referrers).',
             });
             return;
+        }
+
+        let tokenForPicker = accessTokenRef.current || accessToken;
+        if (GOOGLE_CLIENT_ID.trim()) {
+            try {
+                tokenForPicker = await requestGoogleDriveAccessTokenSilent(GOOGLE_CLIENT_ID);
+                setAccessToken(tokenForPicker);
+                accessTokenRef.current = tokenForPicker;
+                if (userDocRef) {
+                    await updateDoc(userDocRef, { 'googleDrive.accessToken': tokenForPicker } as any);
+                }
+            } catch (e: unknown) {
+                const msg = e instanceof Error ? e.message : 'Could not refresh Google sign-in';
+                toast({
+                    variant: 'destructive',
+                    title: 'Drive session needs a refresh',
+                    description: `${msg} Open Connectors → disconnect Google Drive → connect again, then try import.`,
+                });
+                return;
+            }
         }
 
         const view = new window.google.picker.DocsView()
             .setMimeTypes(mimeTypes.join(','))
             .setIncludeFolders(true);
 
-        const picker = new window.google.picker.PickerBuilder()
+        const origin = getGooglePickerOrigin();
+        const builder = new window.google.picker.PickerBuilder()
             .addView(view)
-            .setOAuthToken(accessToken)
+            .setOAuthToken(tokenForPicker)
             .setDeveloperKey(PICKER_API_KEY)
             .setTitle('Select a file from Google Drive')
-            .setCallback((data: any) => {
-                if (data.action === window.google.picker.Action.PICKED) {
+            .setCallback((data: { action?: string; docs?: Array<{ id: string; name: string; mimeType: string; url?: string }>; error?: string }) => {
+                const Action = window.google.picker.Action;
+                if (data.action === Action.PICKED && data.docs?.[0]) {
                     const f = data.docs[0];
-                    onPicked({ id: f.id, name: f.name, mimeType: f.mimeType, url: f.url });
+                    onPicked({ id: f.id, name: f.name, mimeType: f.mimeType, url: f.url || '' });
+                    return;
                 }
-            })
-            .build();
-        picker.setVisible(true);
-    }, [connected, accessToken, pickerReady, toast]);
+                if (data.action === Action.CANCEL) return;
+                if (data.error) {
+                    toast({
+                        variant: 'destructive',
+                        title: 'Drive picker error',
+                        description: data.error || 'Check API key HTTP referrers include this site (e.g. https://*.vercel.app/*) and Google Picker API is enabled.',
+                    });
+                }
+            });
+        if (origin) builder.setOrigin(origin);
+        builder.build().setVisible(true);
+    }, [connected, accessToken, pickerReady, toast, userDocRef]);
 
     /* ── Download file from Drive as base64 ── */
     const downloadFile = useCallback(async (fileId: string, mimeType: string): Promise<string> => {
-        if (!accessToken) throw new Error('Not connected to Google Drive');
+        const t = accessTokenRef.current;
+        if (!t) throw new Error('Not connected to Google Drive');
 
-        // For Google Docs/Sheets export as PDF
         let url = `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`;
         if (mimeType === 'application/vnd.google-apps.document') {
             url = `https://www.googleapis.com/drive/v3/files/${fileId}/export?mimeType=application/pdf`;
         }
 
-        const res = await fetch(url, { headers: { Authorization: `Bearer ${accessToken}` } });
+        const res = await fetch(url, { headers: { Authorization: `Bearer ${t}` } });
         if (!res.ok) throw new Error(`Drive download failed: ${res.statusText}`);
 
         const blob = await res.blob();
@@ -117,7 +158,7 @@ export function useDrive() {
             reader.onerror = reject;
             reader.readAsDataURL(blob);
         });
-    }, [accessToken]);
+    }, []);
 
     /* ── Upload file to Drive ── */
     const uploadFile = useCallback(async (
@@ -125,7 +166,8 @@ export function useDrive() {
         fileName: string,
         mimeType: string = 'application/pdf'
     ): Promise<string> => {
-        if (!accessToken) throw new Error('Not connected to Google Drive');
+        const t = accessTokenRef.current;
+        if (!t) throw new Error('Not connected to Google Drive');
 
         let blob: Blob;
         if (typeof content === 'string') {
@@ -141,14 +183,14 @@ export function useDrive() {
 
         const res = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
             method: 'POST',
-            headers: { Authorization: `Bearer ${accessToken}` },
+            headers: { Authorization: `Bearer ${t}` },
             body: form,
         });
 
         if (!res.ok) throw new Error(`Drive upload failed: ${res.statusText}`);
         const data = await res.json();
         return data.id;
-    }, [accessToken]);
+    }, []);
 
     return { connected, openPicker, downloadFile, uploadFile };
 }

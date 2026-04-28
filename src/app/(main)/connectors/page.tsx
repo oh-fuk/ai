@@ -14,13 +14,14 @@ import {
     FolderOpen, Upload, Unplug, Mail, FileStack, Cloud,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import {
+    getGooglePickerOrigin,
+    GOOGLE_DRIVE_SCOPE_STRING,
+    requestGoogleDriveAccessTokenSilent,
+} from '@/lib/google-drive-picker';
 
 const GOOGLE_CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || '';
 const GOOGLE_PICKER_API_KEY = process.env.NEXT_PUBLIC_GOOGLE_PICKER_API_KEY || '';
-const SCOPES = [
-    'https://www.googleapis.com/auth/drive.file',
-    'https://www.googleapis.com/auth/drive.readonly',
-].join(' ');
 
 declare global {
     interface Window { google: any; gapi: any; }
@@ -139,7 +140,7 @@ function ConnectorsPageInner() {
             await new Promise<void>((resolve, reject) => {
                 const tokenClient = window.google.accounts.oauth2.initTokenClient({
                     client_id: GOOGLE_CLIENT_ID,
-                    scope: SCOPES,
+                    scope: GOOGLE_DRIVE_SCOPE_STRING,
                     callback: async (response: any) => {
                         if (response.error) { reject(new Error(response.error)); return; }
                         const token = response.access_token;
@@ -189,7 +190,7 @@ function ConnectorsPageInner() {
         toastRef.current({ title: 'Google Drive disconnected' });
     };
 
-    const handleOpenPicker = useCallback(() => {
+    const handleOpenPicker = useCallback(async () => {
         if (!pickerLoaded || !accessToken) {
             toastRef.current({ variant: 'destructive', title: 'Picker not ready', description: 'Connect Drive first.' });
             return;
@@ -198,23 +199,58 @@ function ConnectorsPageInner() {
             toastRef.current({
                 variant: 'destructive',
                 title: 'Google Picker is not configured',
-                description: 'Add NEXT_PUBLIC_GOOGLE_PICKER_API_KEY to your .env (API key with Google Picker API + Drive API enabled).',
+                description: 'In Vercel → Environment Variables, set NEXT_PUBLIC_GOOGLE_PICKER_API_KEY. In Google Cloud, enable Picker API + Drive API and restrict the API key by HTTP referrer (include https://ai-amber-omega.vercel.app/* or https://*.vercel.app/*).',
             });
             return;
         }
-        const picker = new window.google.picker.PickerBuilder()
-            .addView(window.google.picker.ViewId.DOCS)
-            .setOAuthToken(accessToken)
+
+        let tokenForPicker = accessToken;
+        if (GOOGLE_CLIENT_ID.trim()) {
+            try {
+                tokenForPicker = await requestGoogleDriveAccessTokenSilent(GOOGLE_CLIENT_ID);
+                setAccessToken(tokenForPicker);
+                if (userDocRef) {
+                    await updateDoc(userDocRef as any, { 'googleDrive.accessToken': tokenForPicker });
+                }
+            } catch (e: unknown) {
+                const msg = e instanceof Error ? e.message : 'Refresh failed';
+                toastRef.current({
+                    variant: 'destructive',
+                    title: 'Drive sign-in expired',
+                    description: `${msg} Use Disconnect, then Connect again on this page.`,
+                });
+                return;
+            }
+        }
+
+        const view = new window.google.picker.DocsView()
+            .setMimeTypes(['application/pdf', 'image/*', 'application/vnd.google-apps.document'].join(','))
+            .setIncludeFolders(true);
+
+        const builder = new window.google.picker.PickerBuilder()
+            .addView(view)
+            .setOAuthToken(tokenForPicker)
             .setDeveloperKey(GOOGLE_PICKER_API_KEY)
-            .setCallback((data: any) => {
-                if (data.action === window.google.picker.Action.PICKED) {
+            .setTitle('Browse Google Drive')
+            .setCallback((data: { action?: string; docs?: Array<{ id: string; name: string }>; error?: string }) => {
+                if (data.action === window.google.picker.Action.PICKED && data.docs?.[0]) {
                     const file = data.docs[0];
                     toastRef.current({ title: `Selected: ${file.name}`, description: `ID: ${file.id}` });
+                    return;
                 }
-            })
-            .build();
-        picker.setVisible(true);
-    }, [pickerLoaded, accessToken]);
+                if (data.action === window.google.picker.Action.CANCEL) return;
+                if (data.error) {
+                    toastRef.current({
+                        variant: 'destructive',
+                        title: 'Drive picker error',
+                        description: data.error,
+                    });
+                }
+            });
+        const origin = getGooglePickerOrigin();
+        if (origin) builder.setOrigin(origin);
+        builder.build().setVisible(true);
+    }, [pickerLoaded, accessToken, userDocRef]);
 
     const driveBlock = (
         <div className="flex flex-col gap-4">
