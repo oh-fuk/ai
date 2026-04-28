@@ -427,7 +427,7 @@ function ConnectorsPageInner() {
         <div className="mx-auto flex w-full max-w-4xl flex-col gap-8">
             <PageHeader
                 title="Connectors"
-                description="Choose an integration to open its page. Available connectors let you connect and manage accounts; coming soon items show what’s planned."
+                description="Choose an integration to open its page. Available connectors let you connect and manage accounts; coming soon items show what is planned."
             />
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 {HUB_CARDS.map((c) => (
