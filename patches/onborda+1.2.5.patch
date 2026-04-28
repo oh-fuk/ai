@@ -1,0 +1,21 @@
+diff --git a/node_modules/onborda/dist/Onborda.js b/node_modules/onborda/dist/Onborda.js
+index 67efd79..9136cc2 100644
+--- a/node_modules/onborda/dist/Onborda.js
++++ b/node_modules/onborda/dist/Onborda.js
+@@ -400,7 +400,7 @@ const Onborda = ({ children, interact = false, steps, shadowRgb = "0, 0, 0", sha
+     const pointerPadding = currentTourSteps?.[currentStep]?.pointerPadding ?? 30;
+     const pointerPadOffset = pointerPadding / 2;
+     const pointerRadius = currentTourSteps?.[currentStep]?.pointerRadius ?? 28;
+-    return (_jsxs("div", { "data-name": "onborda-wrapper", className: "relative w-full", "data-onborda": "dev", children: [_jsx("div", { "data-name": "onborda-site", className: "block w-full", children: children }), pointerPosition && isOnbordaVisible && CardComponent && (_jsxs(Portal, { children: [!interact && (_jsx("div", { className: "fixed inset-0 z-[900]" })), _jsx(motion.div, { "data-name": "onborda-overlay", className: "absolute inset-0 ", initial: "hidden", animate: isOnbordaVisible ? "visible" : "hidden", variants: variants, transition: { duration: 0.5 }, children: _jsx(motion.div, { "data-name": "onborda-pointer", className: "relative z-[900]", style: {
++    return (_jsxs("div", { "data-name": "onborda-wrapper", className: "relative w-full", "data-onborda": "dev", children: [_jsx("div", { "data-name": "onborda-site", className: "block w-full", children: children }), pointerPosition && isOnbordaVisible && CardComponent && (_jsx(Portal, { children: _jsxs("div", { children: [!interact && (_jsx("div", { className: "fixed inset-0 z-[900]" })), _jsx(motion.div, { "data-name": "onborda-overlay", className: "absolute inset-0 ", initial: "hidden", animate: isOnbordaVisible ? "visible" : "hidden", variants: variants, transition: { duration: 0.5 }, children: _jsx(motion.div, { "data-name": "onborda-pointer", className: "relative z-[900]", style: {
+                                 boxShadow: `0 0 200vw 200vh rgba(${shadowRgb}, ${shadowOpacity})`,
+                                 borderRadius: `${pointerRadius}px ${pointerRadius}px ${pointerRadius}px ${pointerRadius}px`,
+                             }, initial: pointerPosition
+@@ -417,6 +417,6 @@ const Onborda = ({ children, interact = false, steps, shadowRgb = "0, 0, 0", sha
+                                     width: pointerPosition.width + pointerPadding,
+                                     height: pointerPosition.height + pointerPadding,
+                                 }
+-                                : {}, transition: cardTransition, children: _jsx("div", { className: "absolute flex flex-col max-w-[100%] transition-all min-w-min pointer-events-auto z-[950]", "data-name": "onborda-card", style: getCardStyle(currentTourSteps?.[currentStep]?.side), children: _jsx(CardComponent, { step: currentTourSteps?.[currentStep], currentStep: currentStep, totalSteps: currentTourSteps?.length ?? 0, nextStep: nextStep, prevStep: prevStep, arrow: _jsx(CardArrow, {}) }) }) }) })] }))] }));
++                                : {}, transition: cardTransition, children: _jsx("div", { className: "absolute flex flex-col max-w-[100%] transition-all min-w-min pointer-events-auto z-[950]", "data-name": "onborda-card", style: getCardStyle(currentTourSteps?.[currentStep]?.side), children: _jsx(CardComponent, { step: currentTourSteps?.[currentStep], currentStep: currentStep, totalSteps: currentTourSteps?.length ?? 0, nextStep: nextStep, prevStep: prevStep, arrow: _jsx(CardArrow, {}) }) }) }) })] }) }))] }));
+ };
+ export default Onborda;
